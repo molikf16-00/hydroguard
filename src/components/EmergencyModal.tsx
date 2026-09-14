@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
   ShieldAlert,
@@ -33,40 +34,54 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
   leadTime,
   selectedVillage,
 }) => {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-5 my-8">
-        {/* Header */}
-        <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white shadow-sm">
-              <ShieldAlert className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="rounded bg-red-100 text-red-700 px-2 py-0.5 text-xs font-bold uppercase">
-                  {overallRisk} PROTOCOL
-                </span>
-                <span className="text-xs font-mono text-slate-500">
-                  REF #CAP-2026-084
-                </span>
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mt-0.5">
-                {headline} — Evacuation Action Directive
-              </h3>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-            aria-label="Close modal"
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-5 my-8"
           >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white shadow-sm">
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-red-100 text-red-700 px-2 py-0.5 text-xs font-bold uppercase">
+                      {overallRisk} PROTOCOL
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      REF #CAP-2026-084
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                    {headline} — Evacuation Action Directive
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                onClick={onClose}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
         {/* Primary Alert Context Banner */}
         <div className="rounded-xl border border-red-200 bg-red-50/80 p-4 text-xs space-y-2">
@@ -186,13 +201,15 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
             <button
               onClick={onClose}
-              className="rounded-lg bg-slate-900 px-4 py-2 font-bold text-white hover:bg-slate-800 transition"
+              className="rounded-lg bg-slate-900 px-4 py-2 font-bold text-white hover:bg-slate-800 transition cursor-pointer"
             >
               Acknowledge & Close
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
   );
 };

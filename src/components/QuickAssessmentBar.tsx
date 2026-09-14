@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import {
   AlertOctagon,
   Clock,
@@ -12,6 +13,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { RiskLevel } from '../types';
+import { AnimatedNumber } from './AnimatedNumber';
 
 interface QuickAssessmentBarProps {
   overallRisk: RiskLevel;
@@ -131,7 +133,7 @@ export const QuickAssessmentBar: React.FC<QuickAssessmentBarProps> = ({
           <div className="text-[10px] font-semibold uppercase text-slate-400">6. Villages at Risk?</div>
           <div className="mt-1 font-bold text-amber-300 flex items-center gap-1">
             <Users className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-            <span>{villagesCount} {villagesCount === 1 ? 'Village' : 'Villages'}</span>
+            <span><AnimatedNumber value={villagesCount} duration={300} /> {villagesCount === 1 ? 'Village' : 'Villages'}</span>
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   ShieldAlert,
   Radio,
@@ -23,6 +24,7 @@ import { SCENARIO_METRICS, CATCHMENTS } from './data/mockData';
 import { Navbar } from './components/Navbar';
 import { DemoScenarioBar } from './components/DemoScenarioBar';
 import { MainRiskCard } from './components/MainRiskCard';
+import { CitizenActionGuide } from './components/CitizenActionGuide';
 import { MultiSourceCards } from './components/MultiSourceCards';
 import { RiskTrendChart } from './components/RiskTrendChart';
 import { RiskMap } from './components/RiskMap';
@@ -168,9 +170,17 @@ export default function App() {
 
       {/* Main Viewport Container */}
       <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        {currentTab === 'dashboard' && (
-          <div className="space-y-6">
-            {/* Top Title & Operational Status Header */}
+        <AnimatePresence mode="wait">
+          {currentTab === 'dashboard' && (
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-6"
+            >
+              {/* Top Title & Operational Status Header */}
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-slate-200/80 pb-4">
               <div>
                 <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
@@ -203,6 +213,12 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap items-center gap-1 text-xs">
+                <a
+                  href="#citizen-guide"
+                  className="rounded-lg px-2.5 py-1 font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition shadow-2xs"
+                >
+                  Citizen Action Guide
+                </a>
                 <a
                   href="#telemetry"
                   className="rounded-lg px-2.5 py-1 font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
@@ -268,6 +284,19 @@ export default function App() {
               />
             </div>
 
+            {/* Citizen Action Guide - Plain English, 3-second actionable advice & interactive checklist */}
+            <div id="citizen-guide">
+              <CitizenActionGuide
+                overallRisk={activeMetrics.overallRisk}
+                leadTime={activeMetrics.leadTime}
+                affectedCluster={activeMetrics.affectedCluster}
+                nearestShelter={activeMetrics.villages[0]?.nearestShelter || 'High Ground Safe School'}
+                recommendedAction={activeMetrics.evacuationPriority}
+                villages={activeMetrics.villages}
+                onOpenRoute={handleOpenVillageRoute}
+              />
+            </div>
+
             {/* 2. Multi-Source Telemetry Inputs (4 Cards) */}
             <div id="telemetry">
               <MultiSourceCards
@@ -322,12 +351,19 @@ export default function App() {
               {/* 7. Multi-Channel Warning System Card */}
               <AlertChannelsCard />
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Dedicated Risk Map Page */}
         {currentTab === 'map' && (
-          <div className="space-y-4">
+          <motion.div
+            key="map"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-4"
+          >
             {renderSubViewHeader(
               'Catchment GIS Topography & Inundation Map',
               'Inspect topological contour elevation, flood surge wave arrival times, safe shelters, and evacuation paths.',
@@ -341,12 +377,19 @@ export default function App() {
               onSelectVillage={(v) => setSelectedVillageForModal(v)}
               onViewRoute={handleOpenVillageRoute}
             />
-          </div>
+          </motion.div>
         )}
 
         {/* Dedicated Alerts Page */}
         {currentTab === 'alerts' && (
-          <div className="space-y-6">
+          <motion.div
+            key="alerts"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-6"
+          >
             {renderSubViewHeader(
               'Emergency Broadcast Center & Warning Feeds',
               'Common Alerting Protocol (CAP v1.2) multi-channel dispatch, sirens, SMS broadcast, and transmission logs.',
@@ -373,12 +416,19 @@ export default function App() {
             />
 
             <AlertChannelsCard />
-          </div>
+          </motion.div>
         )}
 
         {/* Dedicated Analytics Page */}
         {currentTab === 'analytics' && (
-          <div className="space-y-6">
+          <motion.div
+            key="analytics"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-6"
+          >
             {renderSubViewHeader(
               'Hydrological Analytics & Sensor Runoff Diagnostics',
               'Multi-source sensor correlation, time-series rainfall/river stage tracking, and kinematic catchment delay calculations.',
@@ -392,12 +442,19 @@ export default function App() {
               villages={activeMetrics.villages}
               alertsCount={activeMetrics.activeAlerts.length}
             />
-          </div>
+          </motion.div>
         )}
 
         {/* Dedicated Architecture Page */}
         {currentTab === 'about' && (
-          <div className="space-y-6">
+          <motion.div
+            key="about"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-6"
+          >
             {renderSubViewHeader(
               'System Architecture & Multi-Source Sensor Specifications',
               'Hardware datalogging, radar stage measurement, telemetry failover topology, and early warning standards.',
@@ -406,8 +463,9 @@ export default function App() {
             )}
 
             <AboutView />
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </main>
 
       {/* Emergency Operational Details Modal */}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import {
   ShieldAlert,
   Users,
@@ -12,6 +13,7 @@ import {
   Flame
 } from 'lucide-react';
 import { VillageData, RiskLevel } from '../types';
+import { AnimatedNumber } from './AnimatedNumber';
 
 interface EvacuationIntelligenceProps {
   villages: VillageData[];
@@ -84,7 +86,7 @@ export const EvacuationIntelligence: React.FC<EvacuationIntelligenceProps> = ({
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs">
           <span className="text-amber-800 font-medium">Exposed Population: </span>
           <span className="font-bold text-amber-900 font-mono">
-            {totalExposedPop.toLocaleString()} residents
+            <AnimatedNumber value={totalExposedPop} duration={500} /> residents
           </span>
         </div>
       </div>
@@ -96,9 +98,11 @@ export const EvacuationIntelligence: React.FC<EvacuationIntelligenceProps> = ({
           const isHighPriority = village.riskLevel === 'SEVERE' || village.riskLevel === 'HIGH';
 
           return (
-            <div
+            <motion.div
               key={village.id}
-              className={`flex flex-col justify-between rounded-2xl border p-5 shadow-xs transition hover:shadow-md ${style.border} ${style.bg}`}
+              layout
+              whileHover={{ y: -3, transition: { duration: 0.2 } }}
+              className={`flex flex-col justify-between rounded-2xl border p-5 shadow-xs transition-shadow hover:shadow-md ${style.border} ${style.bg}`}
             >
               <div className="space-y-3.5">
                 {/* Header */}
@@ -128,7 +132,7 @@ export const EvacuationIntelligence: React.FC<EvacuationIntelligenceProps> = ({
                     </span>
                     <span className="text-base font-bold text-slate-900 font-mono flex items-center gap-1 mt-0.5">
                       <Users className="h-3.5 w-3.5 text-amber-600" />
-                      {village.population.toLocaleString()}
+                      <AnimatedNumber value={village.population} duration={400} />
                     </span>
                   </div>
 
@@ -168,14 +172,14 @@ export const EvacuationIntelligence: React.FC<EvacuationIntelligenceProps> = ({
               <div className="pt-4 mt-4 border-t border-slate-100">
                 <button
                   onClick={() => onViewRouteModal(village)}
-                  className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-bold uppercase tracking-wider transition ${style.button}`}
+                  className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${style.button}`}
                 >
                   <Navigation className="h-3.5 w-3.5" />
                   <span>VIEW SAFE ROUTE</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>

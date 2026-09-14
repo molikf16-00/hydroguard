@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+@keyframes riverFlow {
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes evacMarch {
+  from {
+    stroke-dashoffset: 20;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes radarSweep {
+  0% {
+    r: 6;
+    opacity: 0.9;
+  }
+  100% {
+    r: 26;
+    opacity: 0;
+  }
+}
+
+.animate-river-flow {
+  animation: riverFlow 2.2s linear infinite;
+}
+
+.animate-evac-march {
+  animation: evacMarch 1.2s linear infinite;
+}
+
+.animate-radar-ring {
+  animation: radarSweep 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}

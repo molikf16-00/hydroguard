@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import {
   TrendingUp,
   CloudRain,
@@ -6,9 +7,12 @@ import {
   ShieldAlert,
   Info,
   Sliders,
-  Check
+  Check,
+  Zap,
+  Activity
 } from 'lucide-react';
 import { TrendPoint, RiskLevel } from '../types';
+import { AnimatedNumber } from './AnimatedNumber';
 
 interface RiskTrendChartProps {
   trendHistory: TrendPoint[];
@@ -31,8 +35,8 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
   const svgHeight = 240;
   const padLeft = 45;
   const padRight = 45;
-  const padTop = 20;
-  const padBottom = 30;
+  const padTop = 24;
+  const padBottom = 32;
 
   const chartW = svgWidth - padLeft - padRight;
   const chartH = svgHeight - padTop - padBottom;
@@ -63,10 +67,11 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
   const riverPoints = trendHistory.map((pt, i) => `${getX(i)},${getRiverY(pt.riverLevelM)}`).join(' ');
   const riskPoints = trendHistory.map((pt, i) => `${getX(i)},${getRiskY(pt.riskScore)}`).join(' ');
 
+  const riskArea = `${padLeft},${padTop + chartH} ${riskPoints} ${svgWidth - padRight},${padTop + chartH}`;
   const dangerY = getRiverY(dangerRiver);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
         <div>
@@ -85,7 +90,7 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <button
             onClick={() => setShowRainfall(!showRainfall)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition border ${
+            className={`cursor-pointer inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition border ${
               showRainfall
                 ? 'border-slate-300 bg-slate-100 text-slate-800'
                 : 'border-slate-200 text-slate-400 bg-white'
@@ -97,7 +102,7 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
 
           <button
             onClick={() => setShowRiver(!showRiver)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition border ${
+            className={`cursor-pointer inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition border ${
               showRiver
                 ? 'border-cyan-200 bg-cyan-50 text-cyan-700'
                 : 'border-slate-200 text-slate-400 bg-white'
@@ -109,7 +114,7 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
 
           <button
             onClick={() => setShowRiskScore(!showRiskScore)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition border ${
+            className={`cursor-pointer inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition border ${
               showRiskScore
                 ? 'border-rose-200 bg-rose-50 text-rose-700'
                 : 'border-slate-200 text-slate-400 bg-white'
@@ -127,6 +132,13 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           className="w-full h-auto overflow-visible select-none"
         >
+          <defs>
+            <linearGradient id="riskAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#e11d48" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#e11d48" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
           {/* Horizontal gridlines */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
             const y = padTop + chartH * ratio;
@@ -137,8 +149,8 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
                 y1={y}
                 x2={svgWidth - padRight}
                 y2={y}
-                stroke="#e2e8f0"
-                strokeDasharray="4,4"
+                stroke="#f1f5f9"
+                strokeWidth="1.2"
               />
             );
           })}
@@ -151,24 +163,32 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
             y2={dangerY}
             stroke="#ef4444"
             strokeWidth="1.5"
-            strokeDasharray="6,4"
+            strokeDasharray="5,4"
           />
           <text
             x={svgWidth - padRight - 5}
             y={dangerY - 6}
             textAnchor="end"
             fill="#dc2626"
-            className="text-[10px] font-bold font-mono uppercase"
+            className="text-[10px] font-bold font-mono uppercase tracking-wider"
           >
-            ⚠ River Danger Threshold: 5.2m
+            CRITICAL DANGER THRESHOLD: 5.2m
           </text>
+
+          {/* Risk Area Under Curve */}
+          {showRiskScore && (
+            <polygon
+              fill="url(#riskAreaGrad)"
+              points={riskArea}
+            />
+          )}
 
           {/* Series Lines */}
           {showRainfall && (
             <polyline
               fill="none"
-              stroke="#334155"
-              strokeWidth="2.5"
+              stroke="#475569"
+              strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
               points={rainPoints}
@@ -205,7 +225,7 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
                 y1={padTop}
                 x2={getX(hoveredIdx)}
                 y2={padTop + chartH}
-                stroke="#64748b"
+                stroke="#94a3b8"
                 strokeWidth="1.5"
                 strokeDasharray="3,3"
               />
@@ -215,7 +235,7 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
                   cx={getX(hoveredIdx)}
                   cy={getRainY(trendHistory[hoveredIdx].rainfallMm)}
                   r="4.5"
-                  fill="#334155"
+                  fill="#475569"
                   stroke="#ffffff"
                   strokeWidth="2"
                 />
@@ -299,30 +319,34 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
       <div className="rounded-xl bg-slate-50 p-3 border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2">
           <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
-            Time: {activePoint.time}
+            TIMESTAMP: {activePoint.time}
           </span>
-          <span className="text-slate-500 text-[11px]">Hover across chart to inspect telemetry</span>
+          <span className="text-slate-500 text-[11px] hidden sm:inline">Hover horizontally across timeline to scrub data</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-slate-800" />
+            <span className="h-2 w-2 rounded-full bg-slate-700" />
             <span className="text-slate-500">Rainfall:</span>
-            <span className="font-mono font-bold text-slate-900">{activePoint.rainfallMm} mm</span>
+            <span className="font-mono font-bold text-slate-900">
+              <AnimatedNumber value={activePoint.rainfallMm} duration={250} decimals={0} /> mm
+            </span>
           </div>
 
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-cyan-600" />
-            <span className="text-slate-500">River Stage:</span>
+            <span className="text-slate-500">Stage:</span>
             <span className={`font-mono font-bold ${activePoint.riverLevelM >= 5.2 ? 'text-red-600' : 'text-slate-900'}`}>
-              {activePoint.riverLevelM} m
+              <AnimatedNumber value={activePoint.riverLevelM} duration={250} decimals={1} /> m
             </span>
           </div>
 
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-rose-600" />
-            <span className="text-slate-500">Risk Score:</span>
-            <span className="font-mono font-bold text-rose-600">{activePoint.riskScore}/100</span>
+            <span className="text-slate-500">Risk Index:</span>
+            <span className="font-mono font-bold text-rose-600">
+              <AnimatedNumber value={activePoint.riskScore} duration={250} decimals={0} /> / 100
+            </span>
           </div>
         </div>
       </div>

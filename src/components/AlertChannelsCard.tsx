@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Radio,
   Wifi,
@@ -68,9 +69,11 @@ export const AlertChannelsCard: React.FC = () => {
       {/* Channels Grid */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {channels.map((ch) => (
-          <div
+          <motion.div
             key={ch.id}
-            className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition hover:bg-white hover:shadow-xs"
+            layout
+            whileHover={{ y: -3, transition: { duration: 0.2 } }}
+            className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition-shadow hover:bg-white hover:shadow-md"
           >
             <div>
               <div className="flex items-start justify-between">
@@ -133,17 +136,24 @@ export const AlertChannelsCard: React.FC = () => {
                 )}
               </button>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
 
       {/* Simulated dispatch test feedback banner */}
-      {testResult && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-          <span>{testResult}</span>
-        </div>
-      )}
+      <AnimatePresence>
+        {testResult && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -6, height: 0 }}
+            className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2 overflow-hidden"
+          >
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>{testResult}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Dispatch Gateway Specifications */}
       <div className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-600 border border-slate-200 flex items-center gap-2">

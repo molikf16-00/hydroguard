@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import {
   Play,
   Pause,
@@ -64,44 +65,59 @@ export const DemoScenarioBar: React.FC<DemoScenarioBarProps> = ({
 
         {/* Right: 3 Clear Scenario Buttons + Auto-Play Toggle */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-          <div className="grid grid-cols-3 sm:flex items-center rounded-lg bg-slate-100 p-1 border border-slate-200 w-full sm:w-auto">
+          <div className="grid grid-cols-3 sm:flex items-center rounded-lg bg-slate-100 p-1 border border-slate-200 w-full sm:w-auto relative">
             {/* Normal */}
             <button
               onClick={() => onScenarioChange('NORMAL')}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-md px-1.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold transition ${
-                scenario === 'NORMAL'
-                  ? 'bg-white text-emerald-800 shadow-xs ring-1 ring-emerald-500/30'
-                  : 'text-slate-600 hover:text-slate-900'
+              className={`relative flex items-center justify-center gap-1 sm:gap-1.5 rounded-md px-1.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer ${
+                scenario === 'NORMAL' ? 'text-emerald-900 font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-              <span className="truncate">Nominal</span>
+              {scenario === 'NORMAL' && (
+                <motion.div
+                  layoutId="scenarioIndicator"
+                  className="absolute inset-0 rounded-md bg-white shadow-xs ring-1 ring-emerald-500/30"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
+              <span className="relative z-10 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+              <span className="relative z-10 truncate">Nominal</span>
             </button>
 
             {/* Rising Risk */}
             <button
               onClick={() => onScenarioChange('RISING')}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-md px-1.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold transition ${
-                scenario === 'RISING'
-                  ? 'bg-white text-amber-800 shadow-xs ring-1 ring-amber-500/30'
-                  : 'text-slate-600 hover:text-slate-900'
+              className={`relative flex items-center justify-center gap-1 sm:gap-1.5 rounded-md px-1.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer ${
+                scenario === 'RISING' ? 'text-amber-900 font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-              <span className="truncate">Surge Watch</span>
+              {scenario === 'RISING' && (
+                <motion.div
+                  layoutId="scenarioIndicator"
+                  className="absolute inset-0 rounded-md bg-white shadow-xs ring-1 ring-amber-500/30"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
+              <span className="relative z-10 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+              <span className="relative z-10 truncate">Surge Watch</span>
             </button>
 
             {/* Severe Flood */}
             <button
               onClick={() => onScenarioChange('SEVERE')}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-md px-1.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold transition ${
-                scenario === 'SEVERE'
-                  ? 'bg-red-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              className={`relative flex items-center justify-center gap-1 sm:gap-1.5 rounded-md px-1.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer ${
+                scenario === 'SEVERE' ? 'text-white font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span className={`h-2 w-2 shrink-0 rounded-full ${scenario === 'SEVERE' ? 'bg-white animate-ping' : 'bg-red-500'}`} />
-              <span className="truncate">Inundation</span>
+              {scenario === 'SEVERE' && (
+                <motion.div
+                  layoutId="scenarioIndicator"
+                  className="absolute inset-0 rounded-md bg-red-600 shadow-xs"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
+              <span className={`relative z-10 h-2 w-2 shrink-0 rounded-full ${scenario === 'SEVERE' ? 'bg-white animate-pulse' : 'bg-red-500'}`} />
+              <span className="relative z-10 truncate">Inundation</span>
             </button>
           </div>
 

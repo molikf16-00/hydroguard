@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import {
   ShieldAlert,
   Bell,
@@ -11,7 +12,11 @@ import {
   Info,
   AlertTriangle,
   Flame,
-  CheckCircle2
+  CheckCircle2,
+  Clock,
+  Wifi,
+  RadioTower,
+  Cpu
 } from 'lucide-react';
 import { RiskLevel } from '../types';
 
@@ -30,6 +35,21 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [timeState, setTimeState] = useState({
+    utc: new Date().toISOString().substring(11, 19) + ' UTC',
+    ist: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setTimeState({
+        utc: now.toISOString().substring(11, 19) + ' UTC',
+        ist: now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const getRiskIndicator = () => {
     switch (overallRisk) {
@@ -89,6 +109,42 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-md">
+      {/* Tactical Mission Telemetry Bar */}
+      <div className="hidden lg:block border-b border-slate-800 bg-slate-950 text-slate-300 px-4 sm:px-6 lg:px-8 py-1 text-[11px] font-mono">
+        <div className="mx-auto max-w-7xl flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <span className="flex items-center gap-1.5 text-emerald-400 font-semibold tracking-wide">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              INCIDENT OPS: LIVE INGEST
+            </span>
+            <span className="text-slate-700">|</span>
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <RadioTower className="h-3 w-3 text-slate-400" />
+              <span>LoRaWAN Mesh: Ch 04 (Nominal)</span>
+            </span>
+            <span className="text-slate-700">|</span>
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <Cpu className="h-3 w-3 text-slate-400" />
+              <span>Radar Level: 80 GHz Modbus</span>
+            </span>
+            <span className="text-slate-700">|</span>
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <Wifi className="h-3 w-3 text-slate-400" />
+              <span>CAP v1.2 Gateway: Armed</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 text-slate-300">
+            <span className="flex items-center gap-1.5 text-slate-300">
+              <Clock className="h-3 w-3 text-emerald-400" />
+              <span className="text-white font-semibold tabular-nums tracking-wide">{timeState.utc}</span>
+            </span>
+            <span className="text-slate-700">•</span>
+            <span className="text-slate-400 tabular-nums">IST {timeState.ist.replace(' IST', '')}</span>
+          </div>
+        </div>
+      </div>
+
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Brand & Identity */}
         <div className="flex items-center gap-3">
@@ -121,16 +177,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 font-semibold rounded-lg transition-all ${
-                    isActive
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                  className={`relative flex items-center gap-1.5 px-3 py-1.5 font-semibold rounded-lg transition-colors cursor-pointer ${
+                    isActive ? 'text-white' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
-                  <span>{item.label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeNavTab"
+                      className="absolute inset-0 rounded-lg bg-slate-900 shadow-xs"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                  <Icon className={`relative z-10 h-3.5 w-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <span className="relative z-10">{item.label}</span>
                   {item.hasBadge && activeAlertsCount > 0 && (
-                    <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white leading-none">
+                    <span className="relative z-10 ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white leading-none">
                       {activeAlertsCount}
                     </span>
                   )}
@@ -151,14 +212,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 font-semibold rounded-lg transition-all ${
-                    isActive
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                  className={`relative flex items-center gap-1.5 px-3 py-1.5 font-semibold rounded-lg transition-colors cursor-pointer ${
+                    isActive ? 'text-white' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
-                  <span>{item.label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeNavTab"
+                      className="absolute inset-0 rounded-lg bg-slate-900 shadow-xs"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                  <Icon className={`relative z-10 h-3.5 w-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <span className="relative z-10">{item.label}</span>
                 </button>
               );
             })}
