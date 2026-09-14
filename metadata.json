@@ -1,0 +1,8 @@
+{
+  "name": "HydroGuard",
+  "description": "Multi-Source Flash Flood Early Warning and Evacuation Decision Support System for Hilly and Mountainous Catchments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
