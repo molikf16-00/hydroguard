@@ -2,6 +2,8 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'SEVERE';
 
 export type SimulationScenario = 'NORMAL' | 'RISING' | 'SEVERE';
 
+export type AppMode = 'LIVE' | 'DEMO';
+
 export interface CatchmentOption {
   id: string;
   name: string;
@@ -26,6 +28,12 @@ export interface VillageData {
   coordinates: { xPercent: number; yPercent: number };
   safeRoute: string[];
   hazardFactors: string[];
+  lat?: number;
+  lon?: number;
+  distanceFromTriggerKm?: number;
+  walkingDistanceKm?: number;
+  leadTimeRangeDisplay?: string;
+  leadTimeFormula?: string;
 }
 
 export interface SourceMetric {
@@ -41,6 +49,9 @@ export interface SourceMetric {
   thresholdValue: string;
   sparkline: number[];
   details: string;
+  sourceName?: string;
+  sourceTimestamp?: string;
+  sourceMethod?: string;
 }
 
 export interface TrendPoint {
@@ -49,6 +60,7 @@ export interface TrendPoint {
   riverLevelM: number;
   riskScore: number; // 0 to 100
   soilSaturationPct: number;
+  timestampIso?: string;
 }
 
 export interface AlertHistoryItem {
@@ -63,6 +75,7 @@ export interface AlertHistoryItem {
   leadTime: string;
   instructions: string;
   recommendedAction?: string;
+  capXml?: string;
 }
 
 export interface ChannelStatus {
@@ -74,4 +87,57 @@ export interface ChannelStatus {
   coverage: string;
   latency: string;
   notes: string;
+}
+
+export interface RiskFactorItem {
+  id: string;
+  name: string;
+  weightPercent: number; // e.g. 35
+  rawValue: string;
+  numericValue: number;
+  unit: string;
+  contributionPoints: number; // e.g. 28 / 35
+  maxPoints: number; // e.g. 35
+  thresholdText: string;
+  isWatchExceeded: boolean;
+  statusColor: 'emerald' | 'amber' | 'orange' | 'red';
+  description: string;
+}
+
+export interface SignalAgreement {
+  activeSignals: number; // e.g. 3
+  totalSignals: number; // 4
+  percent: number; // 75
+  freshness: string; // e.g. "Live sync: 42s ago" or "Cached: 4m ago"
+  statusText: string;
+}
+
+export interface TransparentRiskScore {
+  totalScore: number; // 0 - 100
+  riskLevel: RiskLevel;
+  factors: RiskFactorItem[];
+  signalAgreement: SignalAgreement;
+  methodologyNote: string;
+}
+
+export interface SimulatedDispatchLogEntry {
+  id: string;
+  timestamp: string;
+  channelName: string;
+  destination: string;
+  latencyTarget: string;
+  status: string;
+  payloadSnippet: string;
+}
+
+export interface MetricInspectionData {
+  title: string;
+  value: string;
+  unit: string;
+  status: string;
+  statusLevel: RiskLevel;
+  source: string;
+  timestamp: string;
+  methodNote: string;
+  threshold: string;
 }

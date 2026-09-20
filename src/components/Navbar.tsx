@@ -16,15 +16,24 @@ import {
   Clock,
   Wifi,
   RadioTower,
-  Cpu
+  Cpu,
+  History,
+  Settings,
+  Sparkles,
+  RefreshCw,
+  Globe
 } from 'lucide-react';
-import { RiskLevel } from '../types';
+import { RiskLevel, AppMode } from '../types';
 
 interface NavbarProps {
-  currentTab: 'dashboard' | 'map' | 'alerts' | 'analytics' | 'about';
-  onTabChange: (tab: 'dashboard' | 'map' | 'alerts' | 'analytics' | 'about') => void;
+  currentTab: 'dashboard' | 'map' | 'alerts' | 'analytics' | 'about' | 'replay';
+  onTabChange: (tab: 'dashboard' | 'map' | 'alerts' | 'analytics' | 'about' | 'replay') => void;
   overallRisk: RiskLevel;
   activeAlertsCount: number;
+  appMode: AppMode;
+  onModeToggle: (mode: AppMode) => void;
+  liveDataStatus?: 'loading' | 'success' | 'cached' | 'error';
+  onOpenConfigModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,6 +41,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTabChange,
   overallRisk,
   activeAlertsCount,
+  appMode,
+  onModeToggle,
+  liveDataStatus = 'success',
+  onOpenConfigModal,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -86,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const riskStatus = getRiskIndicator();
 
-  // Grouped Navigation: Operational (core real-time monitoring) vs Intelligence (analysis & specs)
+  // Navigation Items
   const operationalGroup: Array<{
     id: 'dashboard' | 'map' | 'alerts';
     label: string;
@@ -99,13 +112,45 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   const intelligenceGroup: Array<{
-    id: 'analytics' | 'about';
+    id: 'analytics' | 'replay' | 'about';
     label: string;
     icon: React.ComponentType<{ className?: string }>;
   }> = [
     { id: 'analytics', label: 'Analytics', icon: LineChart },
+    { id: 'replay', label: 'Event Replay', icon: History },
     { id: 'about', label: 'Architecture', icon: Info },
   ];
+
+  const getModeBadge = () => {
+    if (appMode === 'LIVE') {
+      if (liveDataStatus === 'loading') {
+        return {
+          text: 'CONNECTING OPEN-METEO...',
+          class: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+          dot: 'bg-cyan-400 animate-pulse',
+        };
+      }
+      if (liveDataStatus === 'cached' || liveDataStatus === 'error') {
+        return {
+          text: 'LIVE (CACHED FALLBACK)',
+          class: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+          dot: 'bg-amber-400',
+        };
+      }
+      return {
+        text: 'LIVE (OPEN-METEO)',
+        class: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+        dot: 'bg-emerald-400 animate-ping',
+      };
+    }
+    return {
+      text: 'DEMO SIMULATOR',
+      class: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+      dot: 'bg-purple-400',
+    };
+  };
+
+  const modeBadge = getModeBadge();
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-md">
@@ -113,24 +158,28 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="hidden lg:block border-b border-slate-800 bg-slate-950 text-slate-300 px-4 sm:px-6 lg:px-8 py-1 text-[11px] font-mono">
         <div className="mx-auto max-w-7xl flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            <span className="flex items-center gap-1.5 text-emerald-400 font-semibold tracking-wide">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              INCIDENT OPS: LIVE INGEST
+            {/* Mode Indicator Badge per GLOBAL RULES */}
+            <span
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-bold tracking-wide border ${modeBadge.class}`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${modeBadge.dot}`} />
+              <span>{modeBadge.text}</span>
             </span>
+
             <span className="text-slate-700">|</span>
             <span className="flex items-center gap-1.5 text-slate-400">
               <RadioTower className="h-3 w-3 text-slate-400" />
-              <span>LoRaWAN Mesh: Ch 04 (Nominal)</span>
+              <span>Catchment: Rishi Ganga (Chamoli)</span>
             </span>
             <span className="text-slate-700">|</span>
             <span className="flex items-center gap-1.5 text-slate-400">
               <Cpu className="h-3 w-3 text-slate-400" />
-              <span>Radar Level: 80 GHz Modbus</span>
+              <span>Hydrological Decision Support (IMD Calibrated)</span>
             </span>
             <span className="text-slate-700">|</span>
             <span className="flex items-center gap-1.5 text-slate-400">
               <Wifi className="h-3 w-3 text-slate-400" />
-              <span>CAP v1.2 Gateway: Armed</span>
+              <span>CAP v1.2 Interface: Armed</span>
             </span>
           </div>
 
@@ -150,7 +199,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={() => onTabChange('dashboard')}
-            className="flex items-center gap-2.5 text-left transition-opacity hover:opacity-90 focus:outline-hidden"
+            className="flex items-center gap-2.5 text-left transition-opacity hover:opacity-90 focus:outline-hidden cursor-pointer"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white shadow-xs">
               <ShieldAlert className="h-4 w-4 text-emerald-400" />
@@ -160,7 +209,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Hydro<span className="text-slate-900 font-black">Guard</span>
               </span>
               <span className="hidden sm:inline-block text-[10px] font-mono font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                v2.4
+                Chamoli EWS
               </span>
             </div>
           </button>
@@ -233,7 +282,48 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Minimalist Right Controls */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* Compact Stream Threat Status Pill */}
+          {/* TASK 1: MODE SWITCHER (Live Open-Meteo vs Demo Simulator) */}
+          <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200 text-xs">
+            <button
+              onClick={() => onModeToggle('LIVE')}
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                appMode === 'LIVE'
+                  ? 'bg-emerald-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Switch to Live Open-Meteo real weather data"
+            >
+              <Globe className="h-3 w-3" />
+              <span className="hidden sm:inline">Live</span>
+            </button>
+
+            <button
+              onClick={() => onModeToggle('DEMO')}
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                appMode === 'DEMO'
+                  ? 'bg-purple-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Switch to Demo Simulator scenarios"
+            >
+              <Sparkles className="h-3 w-3" />
+              <span className="hidden sm:inline">Demo</span>
+            </button>
+          </div>
+
+          {/* Settings / Config Button */}
+          {onOpenConfigModal && (
+            <button
+              onClick={onOpenConfigModal}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
+              title="Catchment & Village Configuration"
+              aria-label="Catchment Configuration"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Stream Threat Status Pill */}
           <div
             className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${riskStatus.badge}`}
           >
@@ -250,7 +340,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="relative">
             <button
               onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs"
+              className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
               title="Alert Notifications"
               aria-label="Alert Notifications"
             >
@@ -280,7 +370,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span>Flash Warning #04 Active</span>
                       </div>
                       <p className="mt-1 text-[11px] text-slate-700 leading-snug">
-                        Immediate evacuation advisory for Village Cluster A. Lead time: 2h 15m.
+                        Immediate evacuation advisory for Village Cluster A. Lead time: 16m–40m.
                       </p>
                       <span className="mt-1 block text-[10px] text-slate-500 font-mono">Dispatched 2m ago</span>
                     </div>
@@ -314,7 +404,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setNotificationsOpen(false);
                     onTabChange('alerts');
                   }}
-                  className="mt-3 w-full rounded-lg bg-slate-900 py-1.5 text-center text-xs font-semibold text-white hover:bg-slate-800 transition"
+                  className="mt-3 w-full rounded-lg bg-slate-900 py-1.5 text-center text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer"
                 >
                   View All Broadcasts
                 </button>
@@ -325,7 +415,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Mobile Menu Toggle Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
             aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -333,9 +423,32 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Mobile Drawer with Clear Groups */}
+      {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-3">
+          {/* Mobile Mode Switcher */}
+          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200">
+            <span className="text-xs font-bold text-slate-700">Operating Mode:</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onModeToggle('LIVE')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                  appMode === 'LIVE' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-700 border border-slate-200'
+                }`}
+              >
+                Live (Open-Meteo)
+              </button>
+              <button
+                onClick={() => onModeToggle('DEMO')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                  appMode === 'DEMO' ? 'bg-purple-600 text-white' : 'bg-white text-slate-700 border border-slate-200'
+                }`}
+              >
+                Demo Simulator
+              </button>
+            </div>
+          </div>
+
           {/* Operational Group */}
           <div>
             <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
@@ -352,18 +465,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                       onTabChange(item.id);
                       setMobileMenuOpen(false);
                     }}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                      isActive
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-700 hover:bg-slate-100'
+                    className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold ${
+                      isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                      <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
                     </div>
                     {item.hasBadge && activeAlertsCount > 0 && (
-                      <span className="rounded-full bg-red-600 px-1.5 py-0.2 text-[10px] font-bold text-white">
+                      <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
                         {activeAlertsCount}
                       </span>
                     )}
@@ -374,9 +485,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Intelligence Group */}
-          <div className="border-t border-slate-100 pt-2">
+          <div>
             <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
-              Intelligence & Specs
+              Intelligence & Systems
             </div>
             <div className="space-y-0.5">
               {intelligenceGroup.map((item) => {
@@ -389,13 +500,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                       onTabChange(item.id);
                       setMobileMenuOpen(false);
                     }}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                      isActive
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-700 hover:bg-slate-100'
+                    className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${
+                      isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                    <Icon className="h-4 w-4" />
                     <span>{item.label}</span>
                   </button>
                 );

@@ -12,9 +12,10 @@ import {
   CheckCircle2,
   Flame,
   Info,
-  Sparkles
+  Sparkles,
+  Database
 } from 'lucide-react';
-import { SourceMetric, RiskLevel } from '../types';
+import { SourceMetric, RiskLevel, MetricInspectionData } from '../types';
 import { AnimatedNumber } from './AnimatedNumber';
 
 interface MultiSourceCardsProps {
@@ -22,6 +23,7 @@ interface MultiSourceCardsProps {
   riverLevel: SourceMetric;
   soilMoisture: SourceMetric;
   terrainSatellite: SourceMetric;
+  onInspectMetric?: (data: MetricInspectionData) => void;
 }
 
 export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
@@ -29,6 +31,7 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
   riverLevel,
   soilMoisture,
   terrainSatellite,
+  onInspectMetric,
 }) => {
   const [showPlainLanguage, setShowPlainLanguage] = useState(true);
 
@@ -38,14 +41,14 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
       icon: '🌧️',
       label: 'Telemetry Source 01',
       stationId: 'CHAM-RN-01',
-      hardware: 'Campbell Scientific TB4-L (SDI-12)',
+      hardware: 'Campbell Scientific TB4-L (SDI-12) / Open-Meteo',
       accuracy: '±0.1 mm/pulse',
       gradId: 'gradRain',
       plainText:
         rainfall.statusLevel === 'SEVERE'
-          ? 'Cloudburst in the peaks: 94mm/hr rainfall. Water is accumulating too quickly for mountain streams to drain.'
+          ? 'Cloudburst conditions: Rainfall is accumulating too quickly for mountain streams to drain.'
           : rainfall.statusLevel === 'HIGH'
-          ? 'Heavy continuous rainfall: 42mm/hr. Mountain gullies are filling rapidly.'
+          ? 'Heavy continuous rainfall. Mountain gullies and side torrents are filling rapidly.'
           : 'Normal mountain weather: Light showers within safe seasonal limits.',
     },
     {
@@ -53,14 +56,14 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
       icon: '🌊',
       label: 'Telemetry Source 02',
       stationId: 'CHAM-RG-04',
-      hardware: 'Vega VEGAPULS C21 (80 GHz Radar)',
+      hardware: 'Vega VEGAPULS C21 (80 GHz Radar) / GloFAS',
       accuracy: '±2.0 mm / 15m range',
       gradId: 'gradRiver',
       plainText:
         riverLevel.statusLevel === 'SEVERE'
-          ? 'River is 5.8m high (surpassing danger mark). Low bridges and riverside footpaths are underwater.'
+          ? 'River is surging high (surpassing danger mark). Low bridges and riverside footpaths are submerged.'
           : riverLevel.statusLevel === 'HIGH'
-          ? 'River stage rising steadily. Water is touching the warning mark at narrow gorges.'
+          ? 'River stage rising steadily. Water is touching the warning mark at narrow gorge bottlenecks.'
           : 'River flow is tranquil and well within its natural embankments.',
     },
     {
@@ -68,12 +71,12 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
       icon: '💧',
       label: 'Telemetry Source 03',
       stationId: 'CHAM-SL-09',
-      hardware: 'Stevens HydraProbe SDI-12 (TDR)',
+      hardware: 'Stevens HydraProbe SDI-12 (TDR) / IFS Land',
       accuracy: '±1.5% Volumetric Water Content',
       gradId: 'gradSoil',
       plainText:
         soilMoisture.statusLevel === 'SEVERE'
-          ? 'The soil is 92% soaked like a saturated sponge. Slopes can liquefy into mudslides and rockfalls.'
+          ? 'The soil is heavily soaked like a saturated sponge. Slopes can liquefy into mudslides and rockfalls.'
           : soilMoisture.statusLevel === 'HIGH'
           ? 'Hillside soil is heavily damp. Watch for falling stones near mountain roads.'
           : 'Ground moisture is normal. Forest soil is absorbing rain naturally.',
@@ -102,101 +105,116 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
       case 'HIGH':
         return 'bg-orange-50 text-orange-700 border-orange-200';
       case 'MEDIUM':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-amber-50 text-amber-800 border-amber-200';
       default:
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        return 'bg-emerald-50 text-emerald-800 border-emerald-200';
     }
   };
 
-  const getSparklineColor = (statusLevel: RiskLevel) => {
+  const getSparklineColors = (statusLevel: RiskLevel) => {
     switch (statusLevel) {
       case 'SEVERE':
-        return { stroke: '#dc2626', fill: 'rgba(220, 38, 38, 0.15)' };
+        return { stroke: '#dc2626', fill: 'rgba(239, 68, 68, 0.15)' };
       case 'HIGH':
-        return { stroke: '#ea580c', fill: 'rgba(234, 88, 12, 0.15)' };
+        return { stroke: '#ea580c', fill: 'rgba(249, 115, 22, 0.15)' };
       case 'MEDIUM':
-        return { stroke: '#d97706', fill: 'rgba(217, 119, 6, 0.15)' };
+        return { stroke: '#d97706', fill: 'rgba(245, 158, 11, 0.15)' };
       default:
-        return { stroke: '#059669', fill: 'rgba(5, 150, 105, 0.15)' };
+        return { stroke: '#059669', fill: 'rgba(16, 185, 129, 0.15)' };
     }
+  };
+
+  const handleCardClick = (item: typeof cards[0]) => {
+    onInspectMetric?.({
+      title: item.metric.title,
+      value: item.metric.value,
+      unit: item.metric.unit,
+      status: item.metric.status,
+      statusLevel: item.metric.statusLevel,
+      source: item.metric.sourceName || (item.metric.iconType === 'rain' ? 'Open-Meteo Weather Forecast API' : item.metric.iconType === 'river' ? 'Copernicus GloFAS / River Inundation API' : 'Open-Meteo Land Surface Hydro Model'),
+      timestamp: item.metric.sourceTimestamp || `${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} IST`,
+      methodNote: item.metric.sourceMethod || item.metric.details,
+      threshold: `${item.metric.thresholdLabel}: ${item.metric.thresholdValue}`,
+    });
   };
 
   return (
-    <div className="space-y-3 w-full min-w-0">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-2">
-        <div className="min-w-0">
+    <div className="space-y-4">
+      {/* Header with Plain Language Toggle */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3">
+        <div>
           <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            <h3 className="text-sm font-bold uppercase tracking-tight text-slate-900 truncate">
-              Multi-Source Environmental Telemetry Ingest
+            <h3 className="text-sm font-bold uppercase tracking-tight text-slate-900">
+              Multi-Source Telemetry Matrix
             </h3>
+            <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-mono text-slate-600 border border-slate-200">
+              TAP TO AUDIT SOURCE
+            </span>
           </div>
-          <p className="text-xs text-slate-500">
-            Real-time calibrated hydrometeorological sensor matrix powering the HydroGuard predictive engine
+          <p className="text-xs text-slate-500 mt-0.5">
+            Atmospheric, river stage, soil saturation, and slope kinematics
           </p>
         </div>
-        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 shrink-0">
-          <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-sans">
-            <button
-              onClick={() => setShowPlainLanguage(true)}
-              className={`rounded-md px-2.5 py-1 font-bold transition cursor-pointer flex items-center gap-1 ${
-                showPlainLanguage
-                  ? 'bg-emerald-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Sparkles className="h-3 w-3" />
-              <span>Plain English</span>
-            </button>
-            <button
-              onClick={() => setShowPlainLanguage(false)}
-              className={`rounded-md px-2.5 py-1 font-bold transition cursor-pointer ${
-                !showPlainLanguage
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span>Technical Specs</span>
-            </button>
-          </div>
-          <span className="hidden sm:inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 border border-slate-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            SYNC: 120s
-          </span>
+
+        {/* Toggle between Plain English and Technical Hardware Specs */}
+        <div className="flex items-center gap-1.5 rounded-xl bg-slate-100 p-1 border border-slate-200">
+          <button
+            onClick={() => setShowPlainLanguage(true)}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+              showPlainLanguage
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Plain English</span>
+          </button>
+
+          <button
+            onClick={() => setShowPlainLanguage(false)}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+              !showPlainLanguage
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Database className="h-3.5 w-3.5 text-slate-600" />
+            <span>Sensor Specs</span>
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full min-w-0">
-        {cards.map(({ metric, icon, label, stationId, hardware, accuracy, gradId, plainText }) => {
-          const colors = getSparklineColor(metric.statusLevel);
-          const minVal = Math.min(...metric.sparkline);
-          const maxVal = Math.max(...metric.sparkline);
-          const range = maxVal - minVal || 1;
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((item, idx) => {
+          const { metric, icon, label, stationId, hardware, accuracy, gradId, plainText } = item;
+          const colors = getSparklineColors(metric.statusLevel);
 
-          // Compute SVG sparkline path
-          const width = 200;
-          const height = 48;
-          const points = metric.sparkline
-            .map((val, idx) => {
-              const x = (idx / (metric.sparkline.length - 1)) * width;
-              const y = height - ((val - minVal) / range) * (height - 12) - 6;
-              return `${x.toFixed(1)},${y.toFixed(1)}`;
+          const spark = metric.sparkline && metric.sparkline.length > 0 ? metric.sparkline : [1, 2, 3, 4, 5, 6];
+          const minVal = Math.min(...spark);
+          const maxVal = Math.max(...spark);
+          const range = maxVal - minVal || 1;
+          const width = 140;
+          const height = 40;
+
+          const points = spark
+            .map((val, i) => {
+              const x = (i / (spark.length - 1)) * width;
+              const y = height - ((val - minVal) / range) * (height - 8) - 4;
+              return `${x},${y}`;
             })
             .join(' ');
 
-          const firstPoint = `0,${height}`;
-          const lastPoint = `${width},${height}`;
-          const areaPoints = `${firstPoint} ${points} ${lastPoint}`;
+          const areaPoints = `0,${height} ${points} ${width},${height}`;
 
           return (
             <motion.div
-              key={metric.title}
+              key={idx}
               layout
               whileHover={{ y: -3, transition: { duration: 0.2 } }}
-              className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-shadow hover:shadow-md hover:border-slate-300 w-full min-w-0 relative overflow-hidden"
+              onClick={() => handleCardClick(item)}
+              className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition hover:border-slate-300 hover:shadow-md cursor-pointer"
+              title="Click to view full data provenance, timestamp, and audit record"
             >
               {/* Subtle top indicator bar */}
               <div
@@ -290,9 +308,9 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
                   <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
                     <span className="flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                      6-Hr Trend
+                      Trend History
                     </span>
-                    <span>Min: {minVal} • Max: {maxVal}</span>
+                    <span>Min: {minVal.toFixed(1)} • Max: {maxVal.toFixed(1)}</span>
                   </div>
                   <div className="h-12 w-full rounded-lg bg-slate-50/80 p-1 border border-slate-100 flex items-center overflow-hidden">
                     <svg
@@ -307,13 +325,11 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
                         </linearGradient>
                       </defs>
 
-                      {/* Area Fill */}
                       <polygon
                         fill={`url(#${gradId})`}
                         points={areaPoints}
                       />
 
-                      {/* Line Stroke */}
                       <polyline
                         fill="none"
                         stroke={colors.stroke}

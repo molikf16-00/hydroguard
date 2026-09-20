@@ -10,25 +10,52 @@ import {
   AlertCircle,
   RefreshCw,
   Send,
-  Info
+  Info,
+  Trash2,
+  Clock
 } from 'lucide-react';
 import { ALERT_CHANNELS } from '../data/mockData';
-import { ChannelStatus } from '../types';
+import { ChannelStatus, SimulatedDispatchLogEntry } from '../types';
 
-export const AlertChannelsCard: React.FC = () => {
-  const [channels, setChannels] = useState<ChannelStatus[]>(ALERT_CHANNELS);
+interface AlertChannelsCardProps {
+  onInspectMetric?: (title: string, value: string, source: string, method: string) => void;
+}
+
+export const AlertChannelsCard: React.FC<AlertChannelsCardProps> = ({ onInspectMetric }) => {
+  const [channels] = useState<ChannelStatus[]>(ALERT_CHANNELS);
   const [testingChannelId, setTestingChannelId] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [dispatchLogs, setDispatchLogs] = useState<SimulatedDispatchLogEntry[]>([
+    {
+      id: 'log-001',
+      timestamp: '16:15:22 IST',
+      channelName: 'National SMS Cell Broadcast',
+      destination: 'Raini & Tapovan BTS Towers',
+      latencyTarget: 'Design target: < 4.0s',
+      status: 'ACK RECEIVED (SIMULATED)',
+      payloadSnippet: 'CAP-1.2: FLASH FLOOD WATCH / RESIDENTS REMAIN ALERT',
+    },
+  ]);
 
   const handleTestDispatch = (channelId: string, channelName: string) => {
     setTestingChannelId(channelId);
-    setTestResult(null);
 
     setTimeout(() => {
       setTestingChannelId(null);
-      setTestResult(`[SIMULATED RELAY] Ping sent to ${channelName} gateway — Handshake ACK received in 1.4s`);
-      setTimeout(() => setTestResult(null), 5000);
-    }, 1200);
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')} IST`;
+
+      const newEntry: SimulatedDispatchLogEntry = {
+        id: `sim-${Date.now()}`,
+        timestamp: timeStr,
+        channelName: channelName,
+        destination: 'Sector Gateways (Chamoli Valley)',
+        latencyTarget: 'Design target: < 4.0s',
+        status: 'ACK RECEIVED (SIMULATED)',
+        payloadSnippet: `PING: HANDSHAKE PROBE TO ${channelName.toUpperCase()} [SIMULATED - no message sent]`,
+      };
+
+      setDispatchLogs((prev) => [newEntry, ...prev.slice(0, 7)]);
+    }, 900);
   };
 
   const getStatusBadge = (status: string) => {
@@ -47,7 +74,8 @@ export const AlertChannelsCard: React.FC = () => {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-5">
+      {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
         <div>
           <div className="flex items-center gap-2">
@@ -72,8 +100,8 @@ export const AlertChannelsCard: React.FC = () => {
           <motion.div
             key={ch.id}
             layout
-            whileHover={{ y: -3, transition: { duration: 0.2 } }}
-            className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition-shadow hover:bg-white hover:shadow-md"
+            whileHover={{ y: -2, transition: { duration: 0.2 } }}
+            className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition-shadow hover:bg-white hover:shadow-sm"
           >
             <div>
               <div className="flex items-start justify-between">
@@ -92,7 +120,7 @@ export const AlertChannelsCard: React.FC = () => {
                 </div>
 
                 <span
-                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(
+                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider font-mono ${getStatusBadge(
                     ch.status
                   )}`}
                 >
@@ -100,14 +128,19 @@ export const AlertChannelsCard: React.FC = () => {
                 </span>
               </div>
 
+              {/* Unsourced metrics relabeled with "Design target" per GLOBAL RULES */}
               <div className="mt-3 space-y-1.5 text-xs">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Coverage:</span>
-                  <span className="font-mono text-slate-800 font-semibold">{ch.coverage.split(' ')[0]} {ch.coverage.split(' ')[1]}</span>
+                  <span className="font-mono text-slate-800 font-semibold">
+                    Design target: {ch.coverage.split(' ')[0]}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Latency:</span>
-                  <span className="font-mono text-slate-900 font-bold">{ch.latency}</span>
+                  <span className="font-mono text-slate-900 font-bold">
+                    Design target: {ch.latency}
+                  </span>
                 </div>
               </div>
 
@@ -116,12 +149,12 @@ export const AlertChannelsCard: React.FC = () => {
               </p>
             </div>
 
-            {/* Simulated test button */}
+            {/* Test Channel Ping button */}
             <div className="mt-3 pt-2 border-t border-slate-200">
               <button
                 onClick={() => handleTestDispatch(ch.id, ch.name)}
                 disabled={testingChannelId === ch.id}
-                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white py-1.5 px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition disabled:opacity-50 shadow-2xs"
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white py-1.5 px-2 text-[11px] font-semibold text-slate-800 hover:bg-slate-100 hover:text-slate-900 transition disabled:opacity-50 shadow-2xs cursor-pointer"
               >
                 {testingChannelId === ch.id ? (
                   <>
@@ -140,26 +173,76 @@ export const AlertChannelsCard: React.FC = () => {
         ))}
       </div>
 
-      {/* Simulated dispatch test feedback banner */}
-      <AnimatePresence>
-        {testResult && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: -6, height: 0 }}
-            className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2 overflow-hidden"
-          >
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span>{testResult}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* TASK 5: ON-SCREEN DISPATCH LOG TABLE */}
+      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-2.5">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-slate-700" />
+            <h4 className="text-xs font-bold uppercase tracking-tight text-slate-900">
+              On-Screen Channel Dispatch Log
+            </h4>
+            <span className="rounded bg-amber-100 border border-amber-200 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-900">
+              SIMULATED - no message sent
+            </span>
+          </div>
 
-      {/* Dispatch Gateway Specifications */}
+          {dispatchLogs.length > 0 && (
+            <button
+              onClick={() => setDispatchLogs([])}
+              className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 cursor-pointer"
+            >
+              <Trash2 className="h-3 w-3" />
+              <span>Clear Log</span>
+            </button>
+          )}
+        </div>
+
+        {dispatchLogs.length === 0 ? (
+          <div className="text-center py-4 text-slate-400 text-xs font-mono">
+            No simulated dispatches logged. Click "Test Channel Ping" on any channel above to test relay latency.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="py-2 px-2">Timestamp</th>
+                  <th className="py-2 px-2">Target Channel</th>
+                  <th className="py-2 px-2">Destination / Nodes</th>
+                  <th className="py-2 px-2">Latency Spec</th>
+                  <th className="py-2 px-2">Relay Status</th>
+                  <th className="py-2 px-2">Payload (SIMULATED)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 font-mono text-[11px]">
+                {dispatchLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-white transition-colors">
+                    <td className="py-2 px-2 text-slate-600 whitespace-nowrap">{log.timestamp}</td>
+                    <td className="py-2 px-2 font-bold text-slate-900">{log.channelName}</td>
+                    <td className="py-2 px-2 text-slate-600">{log.destination}</td>
+                    <td className="py-2 px-2 text-slate-500">{log.latencyTarget}</td>
+                    <td className="py-2 px-2">
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
+                        <CheckCircle2 className="h-3 w-3" />
+                        <span>{log.status}</span>
+                      </span>
+                    </td>
+                    <td className="py-2 px-2 text-slate-500 truncate max-w-[200px]">
+                      {log.payloadSnippet}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Dissemination Notice */}
       <div className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-600 border border-slate-200 flex items-center gap-2">
         <Info className="h-4 w-4 text-slate-800 shrink-0" />
         <p>
-          <strong>Gateway Dissemination Notice:</strong> Cell broadcast channels interface with national telecom Cell Broadcast Centers (CBC) using 3GPP TS 23.041 standards with local LoRaWAN and VHF repeater fallback.
+          <strong>Gateway Dissemination Notice:</strong> Cell broadcast channels interface with national telecom Cell Broadcast Centers (CBC) using 3GPP TS 23.041 standards with local LoRaWAN mesh fallback. All test pings on this prototype are strictly simulated.
         </p>
       </div>
     </div>
