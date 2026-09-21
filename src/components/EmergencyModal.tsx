@@ -65,7 +65,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                       {overallRisk} PROTOCOL
                     </span>
                     <span className="text-xs font-mono text-slate-500">
-                      REF #CAP-2026-084
+                      PROTOTYPE, NOT AN OFFICIAL ALERT
                     </span>
                   </div>
                   <h3 className="text-lg font-bold text-slate-900 mt-0.5">
@@ -106,10 +106,10 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-500 block">
-                Siren Gateway Status
+                Siren gateway
               </span>
               <span className="font-bold text-slate-900 font-mono text-sm">
-                {overallRisk === 'SEVERE' ? '130dB TRIGGER ACTIVE' : 'STANDBY READY'}
+                Not connected (prototype)
               </span>
             </div>
           </div>
@@ -130,7 +130,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
             <div className="space-y-1.5">
               <div className="font-bold text-slate-800">
-                Recommended Turn-by-Turn Safe Evacuation Path:
+                Illustrative evacuation path (not surveyed):
               </div>
               <ol className="list-decimal list-inside space-y-1 text-slate-700 pl-1">
                 {selectedVillage.safeRoute.map((step, idx) => (
@@ -178,7 +178,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
             <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 cursor-pointer">
               <input type="checkbox" className="mt-0.5 rounded border-slate-300 accent-slate-900 focus:ring-0" />
-              <span>Verify LoRa node repeater communication heartbeat</span>
+              <span>Confirm the warning has reached the village contact (manual check)</span>
             </label>
           </div>
         </div>
@@ -187,7 +187,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
           <div className="flex items-center gap-2 text-slate-500 font-mono text-[11px]">
             <Radio className="h-3.5 w-3.5 text-slate-700" />
-            <span>Emergency VHF: 145.850 MHz • Sub-GHz LoRa Ch 04</span>
+            <span>Routes and shelters are illustrative, not surveyed</span>
           </div>
 
           <div className="flex items-center gap-2">

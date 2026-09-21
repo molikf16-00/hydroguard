@@ -199,7 +199,11 @@ export default function App() {
   const showLiveGate = liveUnavailable && currentTab !== 'replay' && currentTab !== 'about';
 
   const handleOpenEmergencyDetails = () => {
-    setSelectedVillageForModal(activeMetrics.villages[0] || null);
+    const rank: Record<RiskLevel, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, SEVERE: 3 };
+    const top = [...activeMetrics.villages].sort(
+      (a, b) => rank[b.riskLevel] - rank[a.riskLevel] || (b.riskScore ?? 0) - (a.riskScore ?? 0)
+    )[0];
+    setSelectedVillageForModal(top || null);
     setIsEmergencyModalOpen(true);
   };
 
@@ -329,7 +333,7 @@ export default function App() {
         isRefreshingLive={isRefreshingLive}
         liveStatusText={
           liveDataStatus === 'success'
-            ? `Open-Meteo forecast + GloFAS model data, ${catchmentConfig.villages.length} village cells`
+            ? `Open-Meteo forecast + GloFAS model data, ${catchmentConfig.villages.length} villages`
             : liveDataStatus === 'cached'
             ? 'Cached Open-Meteo response (offline fallback)'
             : liveDataStatus === 'error'

@@ -61,6 +61,9 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
   const dangerRiver = 5.2; // meters
   const maxRisk = 100; // score
 
+  // Show roughly 6-7 time labels so they never run together (aligned to the latest point).
+  const labelStep = Math.max(1, Math.ceil(trendHistory.length / 7));
+
   const getX = (index: number) => {
     return padLeft + (index / Math.max(1, trendHistory.length - 1)) * chartW;
   };
@@ -310,7 +313,7 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
                 fill={hoveredIdx === i ? '#0f172a' : '#64748b'}
                 className="text-[11px] font-mono font-semibold"
               >
-                {pt.time}
+                {(trendHistory.length - 1 - i) % labelStep === 0 || hoveredIdx === i ? pt.time : ''}
               </text>
             </g>
           ))}

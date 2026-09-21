@@ -173,7 +173,7 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Atmospheric, river stage, soil saturation, and slope kinematics
+            Rainfall, river discharge, soil moisture and terrain (modelled inputs)
           </p>
         </div>
 
@@ -284,7 +284,7 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
                 {/* Main Metric Readout */}
                 <div className="mt-4 flex items-baseline justify-between gap-2">
                   <div className="flex items-baseline gap-1.5 min-w-0">
-                    <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 tracking-tight truncate tabular-nums">
+                    <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 tracking-tight shrink-0 tabular-nums">
                       {metric.unavailable ? (
                         <span className="text-lg sm:text-xl text-slate-500">{metric.value}</span>
                       ) : (
@@ -295,7 +295,7 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
                         />
                       )}
                     </span>
-                    <span className="text-xs sm:text-sm font-semibold text-slate-500 font-mono shrink-0">
+                    <span className="text-xs sm:text-sm font-semibold text-slate-500 font-mono truncate min-w-0">
                       {metric.unavailable ? '' : metric.unit}
                     </span>
                   </div>

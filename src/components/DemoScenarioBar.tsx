@@ -52,7 +52,7 @@ export const DemoScenarioBar: React.FC<DemoScenarioBarProps> = ({
             </span>
 
             <div className="text-[11px] text-emerald-950 font-medium truncate">
-              Chamoli / Rishi Ganga catchment, one model grid cell per village • <span className="font-semibold text-emerald-800">{liveStatusText}</span>
+              Chamoli / Rishi Ganga catchment, nearest model grid point per village (coarse: neighbouring villages can share one) • <span className="font-semibold text-emerald-800">{liveStatusText}</span>
             </div>
           </div>
 

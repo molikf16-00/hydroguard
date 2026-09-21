@@ -363,14 +363,16 @@ export function processBundle(
   const d = driver;
   const p = d.loc.hourly.precipitation;
   const soilSeries = d.loc.hourly.soil_moisture_0_to_7cm;
-  const gridLabel = `${d.cfg.name} model grid cell (${d.loc.latitude.toFixed(2)}, ${d.loc.longitude.toFixed(2)})`;
+  const shortName = d.cfg.name.split(' (')[0];
+  const gridLabel = `${shortName} nearest grid point`;
+  const gridCoords = `Model grid point ${d.loc.latitude.toFixed(2)}, ${d.loc.longitude.toFixed(2)} (village is at ${d.cfg.lat.toFixed(2)}, ${d.cfg.lon.toFixed(2)})`;
   const recentFrom = Math.max(0, d.idx - 23);
   const rain24 = d.inputs.rain24hMm;
   const soilPct = d.inputs.soilMoistureSaturationPct;
   const soilRawNow = lastValid(soilSeries, d.idx) ?? 0;
 
   const rainfall: SourceMetric = {
-    title: 'Rainfall (24 h total, model)',
+    title: 'Rainfall (24 h)',
     iconType: 'rain',
     value: rain24.toFixed(1),
     numericValue: +rain24.toFixed(1),
@@ -381,22 +383,22 @@ export function processBundle(
     thresholdLabel: 'IMD Heavy (24 h)',
     thresholdValue: '64.5 mm',
     sparkline: p.slice(recentFrom, d.idx + 1).map(num),
-    details: `1 h: ${d.inputs.rain1hMm.toFixed(1)} mm | 3 h: ${d.inputs.rain3hMm.toFixed(1)} mm | 72 h: ${d.inputs.rain72hAntecedentMm.toFixed(1)} mm. Sparkline shows hourly model rainfall for the last ${d.idx - recentFrom + 1} hours.`,
+    details: `1 h: ${d.inputs.rain1hMm.toFixed(1)} mm | 3 h: ${d.inputs.rain3hMm.toFixed(1)} mm | 72 h: ${d.inputs.rain72hAntecedentMm.toFixed(1)} mm. Sparkline shows hourly model rainfall for the last ${d.idx - recentFrom + 1} hours. ${gridCoords}.`,
     sourceName: 'Open-Meteo forecast API (model data)',
     sourceTimestamp: timestampText,
     sourceMethod:
       'Open-Meteo "best match" blend of weather-model output, grid spacing roughly 10-25 km. Past hours are model values, not rain-gauge observations.',
     stationLabel: gridLabel,
     sourceKindLabel: 'Model data',
-    hardwareLabel: 'Weather-model grid cell (not a physical sensor)',
-    accuracyLabel: 'Model output, uncalibrated for this catchment',
+    hardwareLabel: 'Model grid, not a sensor',
+    accuracyLabel: 'Uncalibrated',
   };
 
   const dis = d.discharge;
   const dailyVals = (d.flood?.daily?.river_discharge ?? []).filter((v): v is number => typeof v === 'number');
   const riverLevel: SourceMetric = dis
     ? {
-        title: 'River discharge (modelled)',
+        title: 'River discharge',
         iconType: 'river',
         value: dis.value.toFixed(1),
         numericValue: +dis.value.toFixed(1),
@@ -414,11 +416,11 @@ export function processBundle(
           'GloFAS hydrological model on a ~5 km grid, daily values. The grid cell may not sit exactly on the Rishi Ganga channel.',
         stationLabel: gridLabel,
         sourceKindLabel: 'Model data',
-        hardwareLabel: 'Hydrological-model grid cell (not a river gauge)',
-        accuracyLabel: 'Model output, uncalibrated for this catchment',
+        hardwareLabel: 'Model grid, not a gauge',
+        accuracyLabel: 'Uncalibrated',
       }
     : {
-        title: 'River discharge (modelled)',
+        title: 'River discharge',
         iconType: 'river',
         value: 'Unavailable',
         numericValue: 0,
@@ -436,18 +438,18 @@ export function processBundle(
         sourceMethod: 'No value available.',
         stationLabel: gridLabel,
         sourceKindLabel: 'Model data',
-        hardwareLabel: 'Hydrological-model grid cell (not a river gauge)',
+        hardwareLabel: 'Model grid, not a gauge',
         accuracyLabel: 'n/a',
         unavailable: true,
         unavailableReason: 'Discharge data unavailable',
       };
 
   const soilMoisture: SourceMetric = {
-    title: 'Topsoil moisture (0-7 cm, model)',
+    title: 'Topsoil moisture',
     iconType: 'soil',
     value: String(soilPct),
     numericValue: soilPct,
-    unit: '% of assumed field cap.',
+    unit: '% of assumed cap.',
     trend: soilPct > 65 ? 'Elevated' : 'Stable',
     status: soilPct >= 85 ? 'Highly saturated' : soilPct >= 70 ? 'High' : soilPct >= 50 ? 'Moderate' : 'Normal',
     statusLevel: soilPct >= 85 ? 'SEVERE' : soilPct >= 70 ? 'HIGH' : soilPct >= 50 ? 'MEDIUM' : 'LOW',
@@ -460,12 +462,12 @@ export function processBundle(
     sourceMethod: 'Weather-model land-surface scheme, 0-7 cm layer. Not a soil probe.',
     stationLabel: gridLabel,
     sourceKindLabel: 'Model data',
-    hardwareLabel: 'Land-surface model grid cell (not a soil probe)',
-    accuracyLabel: 'Model output; capacity is an assumption',
+    hardwareLabel: 'Model grid, not a probe',
+    accuracyLabel: 'Capacity assumed',
   };
 
   const terrainSatellite: SourceMetric = {
-    title: 'Terrain and slope stability',
+    title: 'Terrain / slope',
     iconType: 'satellite',
     value: 'Not integrated',
     numericValue: 0,
@@ -483,7 +485,7 @@ export function processBundle(
     sourceMethod: 'Not integrated.',
     stationLabel: 'No data source',
     sourceKindLabel: 'Planned',
-    hardwareLabel: 'Not integrated (planned: SRTM/DEM and Sentinel-1)',
+    hardwareLabel: 'Not integrated',
     accuracyLabel: 'n/a',
     unavailable: true,
     unavailableReason: 'Not integrated yet',
@@ -512,7 +514,7 @@ export function processBundle(
   const hazardCopy: Record<RiskLevel, { headline: string; text: string }> = {
     LOW: {
       headline: 'Nominal catchment conditions',
-      text: 'Modelled rainfall, soil moisture and river discharge are within normal ranges for all villages.',
+      text: 'The combined score is low for all villages. Check the indicator cards for any that are elevated.',
     },
     MEDIUM: {
       headline: 'Weather advisory: active precipitation',
