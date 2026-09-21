@@ -112,7 +112,7 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                   <span className="text-sm font-semibold text-slate-500">/ 100 max</span>
                 </div>
                 <div className="mt-2 text-[11px] text-slate-600">
-                  Calculated from 4 weighted hydrological factors calibrated against IMD thresholds.
+                  Calculated from {scoreData.factors.filter((f) => !f.unavailable).length} weighted factors. Rule-based and uncalibrated; only the 24 h rainfall cut-offs follow IMD categories.
                 </div>
               </div>
 
@@ -123,14 +123,14 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                     SIGNAL AGREEMENT
                   </span>
                   <span className="rounded-md bg-white border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-800 font-mono">
-                    {scoreData.signalAgreement.percent}% Consensus
+                    {scoreData.signalAgreement.percent}% agreement
                   </span>
                 </div>
                 <div className="mt-2 flex items-baseline gap-1.5">
                   <span className="text-3xl font-black font-mono tracking-tight text-slate-900">
                     {scoreData.signalAgreement.activeSignals} / {scoreData.signalAgreement.totalSignals}
                   </span>
-                  <span className="text-xs font-semibold text-slate-500">Signals Exceeded Watch</span>
+                  <span className="text-xs font-semibold text-slate-500">Indicators above watch level</span>
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono text-emerald-700 font-semibold">
                   <Activity className="h-3.5 w-3.5" />
@@ -153,7 +153,7 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
 
               <div className="space-y-4">
                 {scoreData.factors.map((factor) => {
-                  const percentOfFactor = Math.round((factor.contributionPoints / factor.maxPoints) * 100);
+                  const percentOfFactor = factor.maxPoints > 0 ? Math.round((factor.contributionPoints / factor.maxPoints) * 100) : 0;
 
                   return (
                     <div
@@ -165,7 +165,7 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                           <div className="flex items-center gap-2">
                             <h4 className="font-bold text-slate-900 text-xs">{factor.name}</h4>
                             <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-600 border border-slate-200">
-                              Weight: {factor.weightPercent}%
+                              {factor.unavailable ? 'Excluded' : `Weight: ${factor.weightPercent}%`}
                             </span>
                           </div>
                           <span className="text-[11px] text-slate-500 mt-0.5 block">
@@ -175,7 +175,7 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
 
                         <div className="text-left sm:text-right font-mono">
                           <span className="text-base font-black text-slate-900">
-                            +{factor.contributionPoints}
+                            {factor.unavailable ? '-' : `+${factor.contributionPoints}`}
                           </span>
                           <span className="text-slate-400 font-medium"> / {factor.maxPoints} pts</span>
                         </div>
@@ -238,7 +238,7 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                     className="px-4 pb-4 text-[11px] text-slate-600 leading-relaxed border-t border-slate-200/80 pt-3 space-y-2"
                   >
                     <p>
-                      <strong>Rule-Based Hydrological Engine:</strong> This is a deterministic rule-based decision support system designed for high-gradient Himalayan headwaters. It evaluates 1h/3h/24h precipitation against India Meteorological Department (IMD) standard rainfall brackets:
+                      <strong>Rule-based engine, not a validated forecast model:</strong> the same inputs always give the same score. The 24 h rainfall total is compared with India Meteorological Department (IMD) rainfall categories:
                     </p>
                     <ul className="list-disc list-inside space-y-1 font-mono text-[10px] text-slate-700 pl-1">
                       <li>Moderate: 15.6 – 64.4 mm / 24h</li>
@@ -247,7 +247,7 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                       <li>Extremely Heavy: ≥ 204.5 mm / 24h (Severe Flash Flood Alert)</li>
                     </ul>
                     <p>
-                      <strong>Calibration Requirement:</strong> Thresholds and sub-weights are pre-configured from standard meteorological guidelines and GloFAS hydrological discharge distributions. In an operational civil deployment, parameters must be calibrated against historical hydrograph data from the Uttarakhand State Disaster Management Authority (USDMA) and Central Water Commission (CWC).
+                      <strong>What is not IMD:</strong> the 1 h and 3 h rainfall triggers, the 72 h antecedent cut-offs, the soil cut-offs, the discharge-ratio cut-offs and the weights are HydroGuard heuristics. The soil factor divides model moisture by an assumed field capacity. The indicators are all rain-driven, so they are correlated. Before any real deployment they must be calibrated against gauge records from USDMA, CWC and IMD.
                     </p>
                   </motion.div>
                 )}

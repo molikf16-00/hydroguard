@@ -153,16 +153,16 @@ export const EvacuationIntelligence: React.FC<EvacuationIntelligenceProps> = ({
                 <div
                   onClick={() =>
                     onInspectMetric?.({
-                      title: `${village.name} Kinematic Lead Time`,
-                      value: village.leadTimeRangeDisplay || `${village.distanceFromTriggerKm * 3.3}m`,
-                      unit: 'estimated arrival window',
+                      title: `${village.name} wave travel time`,
+                      value: village.leadTimeRangeDisplay || village.estimatedImpactTime,
+                      unit: 'estimated range',
                       status: village.riskLevel,
                       statusLevel: village.riskLevel,
-                      source: `Kinematic wave formula: ${village.distanceFromTriggerKm} km ÷ [2.0 - 5.0 m/s]`,
-                      timestamp: 'Dynamic Realtime Calculation',
+                      source: `Distance ÷ assumed wave speed: ${village.distanceFromTriggerKm ?? 'n/a'} km ÷ [2.0 - 5.0 m/s] (uncalibrated)`,
+                      timestamp: 'Computed from configured distance',
                       methodNote:
-                        'Lead time range = Distance from trigger point ÷ Assumed flood wave velocity [2.0 to 5.0 m/s]. Kinematic wave approximation. True arrival depends on channel roughness, canyon narrowing, and debris load.',
-                      threshold: `Distance: ${village.distanceFromTriggerKm} km`,
+                        'Travel time range = distance from the trigger point ÷ an assumed flood-wave speed of 2.0 to 5.0 m/s. This is how long a wave might take to arrive after a trigger, not how early data gives a warning. Real arrival depends on channel roughness, canyon narrowing and debris load, and the speed range is not calibrated.',
+                      threshold: `Distance: ${village.distanceFromTriggerKm ?? 'n/a'} km (configured)`,
                     })
                   }
                   className="rounded-xl bg-slate-900 text-white p-3 text-xs border border-slate-800 cursor-pointer hover:bg-slate-800 transition shadow-inner"
@@ -171,14 +171,14 @@ export const EvacuationIntelligence: React.FC<EvacuationIntelligenceProps> = ({
                   <div className="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400 font-mono">
                     <span className="flex items-center gap-1 text-cyan-400">
                       <Clock className="h-3 w-3" />
-                      Flood Wave Lead Time (Estimated)
+                      Wave travel time (estimate)
                     </span>
                     <span className="text-[9px] bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700">
                       Formula: D ÷ [2-5 m/s]
                     </span>
                   </div>
                   <div className="text-lg font-black font-mono tracking-tight text-white mt-1">
-                    {village.leadTimeRangeDisplay || '16m – 40m (Estimated)'}
+                    {village.leadTimeRangeDisplay || village.estimatedImpactTime}
                   </div>
                   <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                     Walking escape time: ~{village.evacuationTimeMin} min ({village.walkingDistanceKm || 0.8} km path)
@@ -194,9 +194,11 @@ export const EvacuationIntelligence: React.FC<EvacuationIntelligenceProps> = ({
                     <MapPin className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                     <span>{village.nearestShelter}</span>
                   </div>
-                  <div className="text-[11px] text-emerald-700 font-medium">
-                    Safe Elevation: +{village.elevationM > 1800 ? '90m' : '140m'} above stream bed
-                  </div>
+                  {typeof village.distanceFromRiverM === 'number' && (
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      Distance from river: ~{village.distanceFromRiverM} m (illustrative, not surveyed)
+                    </div>
+                  )}
                 </div>
 
                 {/* Recommended Action */}
@@ -242,7 +244,7 @@ export const EvacuationIntelligence: React.FC<EvacuationIntelligenceProps> = ({
       <div className="rounded-xl border border-slate-200 bg-white p-3.5 text-xs text-slate-600 flex items-center gap-2.5 shadow-2xs">
         <Info className="h-4 w-4 text-slate-700 shrink-0" />
         <p className="leading-relaxed">
-          <strong>Hydraulic Modeling Note:</strong> Kinematic wave approximation. True arrival depends on channel roughness, canyon bottleneck geometry, and sediment/debris load. Computed using: <code className="font-mono font-semibold text-slate-800">Lead Time = Distance from Trigger ÷ [2.0 – 5.0 m/s]</code>.
+          <strong>Modeling note:</strong> a simple travel-time estimate with an uncalibrated wave speed. True arrival depends on channel roughness, canyon geometry and debris load. Computed as <code className="font-mono font-semibold text-slate-800">Travel time = Distance from trigger ÷ [2.0 – 5.0 m/s]</code>. It is not a forecast of warning lead time.
         </p>
       </div>
     </div>

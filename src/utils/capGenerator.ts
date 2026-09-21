@@ -1,17 +1,18 @@
-import { VillageData, RiskLevel } from '../types';
+import { RiskLevel } from '../types';
 
 /**
- * OASIS COMMON ALERTING PROTOCOL (CAP) v1.2 GENERATOR
+ * OASIS COMMON ALERTING PROTOCOL (CAP) v1.2 GENERATOR: PROTOTYPE / EXERCISE ONLY
  *
- * Formats standardized international CAP XML payloads for downstream
- * dissemination across Cell Broadcast Centers (CBC), NDMA Sachet portal,
- * local LoRa relays, and siren gateways.
+ * Every payload is marked status=Exercise with an explicit note. HydroGuard is not connected to any
+ * alerting authority; nothing generated here is an official alert. The sender, contacts and web link
+ * are placeholders on purpose.
+ *
+ * Element order follows the CAP 1.2 schema (alert: identifier, sender, sent, status, msgType, scope,
+ * code, note, info; info: ... area with areaDesc, circle, altitude).
  */
 
 export interface CapAlertParameters {
   identifier?: string;
-  sender?: string;
-  sentIso?: string;
   headline: string;
   description: string;
   instruction: string;
@@ -19,58 +20,76 @@ export interface CapAlertParameters {
   cluster: string;
   lat: number;
   lon: number;
+  /** Village elevation in metres above sea level. CAP altitude is in feet, converted below. */
+  elevationM?: number;
   leadTimeDisplay: string;
-  urgency?: 'Immediate' | 'Expected' | 'Future';
-  severity?: 'Extreme' | 'Severe' | 'Moderate' | 'Minor';
-  certainty?: 'Observed' | 'Likely' | 'Possible';
+  riskLevel: RiskLevel;
 }
+
+interface TierMapping {
+  urgency: 'Immediate' | 'Expected' | 'Future';
+  severity: 'Extreme' | 'Severe' | 'Moderate' | 'Minor';
+  certainty: 'Observed' | 'Likely' | 'Possible' | 'Unlikely';
+  responseType: 'Evacuate' | 'Prepare' | 'Monitor' | 'None';
+}
+
+/** Modelled risk is a forecast, so certainty is never "Observed". */
+export const CAP_TIER_MAPPING: Record<RiskLevel, TierMapping> = {
+  SEVERE: { urgency: 'Immediate', severity: 'Severe', certainty: 'Likely', responseType: 'Evacuate' },
+  HIGH: { urgency: 'Expected', severity: 'Moderate', certainty: 'Possible', responseType: 'Prepare' },
+  MEDIUM: { urgency: 'Future', severity: 'Minor', certainty: 'Possible', responseType: 'Monitor' },
+  LOW: { urgency: 'Future', severity: 'Minor', certainty: 'Unlikely', responseType: 'None' },
+};
+
+const FEET_PER_METRE = 3.28084;
+const CIRCLE_RADIUS_KM = 3.5;
 
 export function generateCapXml(params: CapAlertParameters): string {
   const now = new Date();
-  const id = params.identifier || `IN-UK-HG-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
-  const sent = params.sentIso || now.toISOString();
+  const stamp = now.toISOString().replace(/[-:T]/g, '').slice(0, 12);
+  const id = params.identifier || `HYDROGUARD-EXERCISE-${stamp}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const sent = now.toISOString();
   const expires = new Date(now.getTime() + 4 * 3600 * 1000).toISOString();
+  const tier = CAP_TIER_MAPPING[params.riskLevel];
+  const altitudeLine =
+    typeof params.elevationM === 'number'
+      ? `\n      <altitude>${Math.round(params.elevationM * FEET_PER_METRE)}</altitude>`
+      : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
-  <identifier>${id}</identifier>
-  <sender>hydroguard-ops@sdma.uk.gov.in</sender>
+  <identifier>${escapeXml(id)}</identifier>
+  <sender>prototype@hydroguard.example</sender>
   <sent>${sent}</sent>
-  <status>Actual</status>
+  <status>Exercise</status>
   <msgType>Alert</msgType>
   <scope>Public</scope>
-  <codeValue>IMD-HYDRO-FLASH-04</codeValue>
+  <code>HYDROGUARD-PROTOTYPE</code>
+  <note>PROTOTYPE EXERCISE - NOT AN OFFICIAL ALERT. Generated from modelled data by an uncalibrated prototype. Do not act on or forward this message.</note>
   <info>
     <language>en-IN</language>
     <category>Met</category>
-    <event>Flash Flood Emergency Warning</event>
-    <responseType>Evacuate</responseType>
-    <urgency>${params.urgency || 'Immediate'}</urgency>
-    <severity>${params.severity || 'Extreme'}</severity>
-    <certainty>${params.certainty || 'Observed'}</certainty>
-    <eventCode>
-      <valueName>NDMA-CAP-Standard</valueName>
-      <value>FLASH_FLOOD_RED</value>
-    </eventCode>
+    <event>Flash flood risk (exercise)</event>
+    <responseType>${tier.responseType}</responseType>
+    <urgency>${tier.urgency}</urgency>
+    <severity>${tier.severity}</severity>
+    <certainty>${tier.certainty}</certainty>
     <expires>${expires}</expires>
-    <senderName>Uttarakhand SDMA / HydroGuard Autonomous EWS</senderName>
+    <senderName>HydroGuard prototype (no live contact)</senderName>
     <headline>${escapeXml(params.headline)}</headline>
-    <description>${escapeXml(params.description)} (Estimated Arrival Horizon: ${params.leadTimeDisplay})</description>
+    <description>${escapeXml(params.description)} (Estimated wave travel time from trigger point: ${escapeXml(params.leadTimeDisplay)}, assumption-based)</description>
     <instruction>${escapeXml(params.instruction)}</instruction>
-    <web>https://hydroguard.uk.gov.in/alerts/${id}</web>
-    <contact>District Emergency Operations Center (DEOC) Chamoli: 01372-251437 / 1077</contact>
     <parameter>
-      <valueName>HydrologicalCatchment</valueName>
-      <value>Rishi Ganga - Alaknanda Basin (Chamoli District)</value>
+      <valueName>RiskTier</valueName>
+      <value>${params.riskLevel}</value>
     </parameter>
     <parameter>
-      <valueName>KinematicLeadTimeFormula</valueName>
-      <value>Distance / Velocity [2-5 m/s]</value>
+      <valueName>TravelTimeFormula</valueName>
+      <value>Distance / assumed wave speed [2-5 m/s, uncalibrated]</value>
     </parameter>
     <area>
       <areaDesc>${escapeXml(params.villageName)}, ${escapeXml(params.cluster)}, Chamoli, Uttarakhand</areaDesc>
-      <circle>${params.lat.toFixed(4)},${params.lon.toFixed(4)},3.5</circle>
-      <altitude>1820</altitude>
+      <circle>${params.lat.toFixed(4)},${params.lon.toFixed(4)} ${CIRCLE_RADIUS_KM}</circle>${altitudeLine}
     </area>
   </info>
 </alert>`.trim();
@@ -85,7 +104,7 @@ function escapeXml(unsafe: string): string {
     .replace(/'/g, '&apos;');
 }
 
-export function downloadCapXmlFile(xmlContent: string, filename = 'hydroguard-alert-cap1.2.xml'): void {
+export function downloadCapXmlFile(xmlContent: string, filename = 'hydroguard-cap-exercise.xml'): void {
   const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

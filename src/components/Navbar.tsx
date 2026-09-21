@@ -29,6 +29,8 @@ interface NavbarProps {
   currentTab: 'dashboard' | 'map' | 'alerts' | 'analytics' | 'about' | 'replay';
   onTabChange: (tab: 'dashboard' | 'map' | 'alerts' | 'analytics' | 'about' | 'replay') => void;
   overallRisk: RiskLevel;
+  /** True when Live mode has no data: the risk pill shows "No data" instead of a tier. */
+  riskUnknown?: boolean;
   activeAlertsCount: number;
   appMode: AppMode;
   onModeToggle: (mode: AppMode) => void;
@@ -40,6 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentTab,
   onTabChange,
   overallRisk,
+  riskUnknown = false,
   activeAlertsCount,
   appMode,
   onModeToggle,
@@ -65,6 +68,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const getRiskIndicator = () => {
+    if (riskUnknown) {
+      return {
+        dot: 'bg-slate-400',
+        label: 'No data',
+        badge: 'bg-slate-50 text-slate-600 border-slate-200',
+        pulse: 'bg-slate-300',
+      };
+    }
     switch (overallRisk) {
       case 'SEVERE':
         return {
@@ -130,15 +141,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           dot: 'bg-cyan-400 animate-pulse',
         };
       }
-      if (liveDataStatus === 'cached' || liveDataStatus === 'error') {
+      if (liveDataStatus === 'error') {
         return {
-          text: 'LIVE (CACHED FALLBACK)',
+          text: 'LIVE: NO DATA',
+          class: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
+          dot: 'bg-slate-400',
+        };
+      }
+      if (liveDataStatus === 'cached') {
+        return {
+          text: 'LIVE (CACHED)',
           class: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
           dot: 'bg-amber-400',
         };
       }
       return {
-        text: 'LIVE (OPEN-METEO)',
+        text: 'LIVE (OPEN-METEO MODEL DATA)',
         class: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
         dot: 'bg-emerald-400 animate-ping',
       };
@@ -174,12 +192,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-slate-700">|</span>
             <span className="flex items-center gap-1.5 text-slate-400">
               <Cpu className="h-3 w-3 text-slate-400" />
-              <span>Hydrological Decision Support (IMD Calibrated)</span>
+              <span>Rule-based decision support (uncalibrated)</span>
             </span>
             <span className="text-slate-700">|</span>
             <span className="flex items-center gap-1.5 text-slate-400">
               <Wifi className="h-3 w-3 text-slate-400" />
-              <span>CAP v1.2 Interface: Armed</span>
+              <span>CAP 1.2 export: exercise only</span>
             </span>
           </div>
 
@@ -356,47 +374,31 @@ export const Navbar: React.FC<NavbarProps> = ({
             {notificationsOpen && (
               <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xl z-50 text-slate-800">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                  <span className="text-xs font-bold text-slate-900">Emergency Broadcast Log</span>
+                  <span className="text-xs font-bold text-slate-900">Computed Alerts</span>
                   <span className="rounded bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600 border border-red-100">
                     {activeAlertsCount} Active
                   </span>
                 </div>
 
                 <div className="mt-2.5 space-y-2 text-xs">
-                  {overallRisk === 'SEVERE' ? (
-                    <div className="rounded-lg border border-red-200 bg-red-50/70 p-2.5">
-                      <div className="flex items-center gap-1.5 text-red-700 font-bold">
-                        <Flame className="h-3.5 w-3.5" />
-                        <span>Flash Warning #04 Active</span>
-                      </div>
-                      <p className="mt-1 text-[11px] text-slate-700 leading-snug">
-                        Immediate evacuation advisory for Village Cluster A. Lead time: 16m–40m.
-                      </p>
-                      <span className="mt-1 block text-[10px] text-slate-500 font-mono">Dispatched 2m ago</span>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <span>
+                        {riskUnknown
+                          ? 'No data'
+                          : overallRisk === 'SEVERE'
+                          ? 'Severe tier: computed'
+                          : overallRisk === 'HIGH'
+                          ? 'High tier: computed'
+                          : overallRisk === 'MEDIUM'
+                          ? 'Medium tier: computed'
+                          : 'Low tier: nominal'}
+                      </span>
                     </div>
-                  ) : overallRisk === 'HIGH' ? (
-                    <div className="rounded-lg border border-orange-200 bg-orange-50/70 p-2.5">
-                      <div className="flex items-center gap-1.5 text-orange-700 font-bold">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        <span>Hydrological Watch Issued</span>
-                      </div>
-                      <p className="mt-1 text-[11px] text-slate-700 leading-snug">
-                        River discharge rising upstream. First responders on standby.
-                      </p>
-                      <span className="mt-1 block text-[10px] text-slate-500 font-mono">Dispatched 8m ago</span>
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-2.5">
-                      <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span>All Catchments Nominal</span>
-                      </div>
-                      <p className="mt-1 text-[11px] text-slate-700 leading-snug">
-                        All telemetry streams operating within normal safe thresholds.
-                      </p>
-                      <span className="mt-1 block text-[10px] text-slate-500 font-mono">Updated just now</span>
-                    </div>
-                  )}
+                    <p className="mt-1 text-[11px] text-slate-700 leading-snug">
+                      Alerts shown here are computed on screen. This prototype does not dispatch anything to phones, sirens or authorities.
+                    </p>
+                  </div>
                 </div>
 
                 <button
@@ -406,7 +408,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   }}
                   className="mt-3 w-full rounded-lg bg-slate-900 py-1.5 text-center text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer"
                 >
-                  View All Broadcasts
+                  View Alerts Tab
                 </button>
               </div>
             )}

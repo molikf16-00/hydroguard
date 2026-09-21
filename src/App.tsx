@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShieldAlert,
@@ -25,8 +25,8 @@ import {
   Globe
 } from 'lucide-react';
 import { SimulationScenario, RiskLevel, VillageData, AppMode, MetricInspectionData, TransparentRiskScore } from './types';
-import { SCENARIO_METRICS, CATCHMENTS } from './data/mockData';
-import { DEFAULT_CATCHMENT_CONFIG, CatchmentConfig, calculateKinematicLeadTime } from './config/catchmentConfig';
+import { SCENARIO_METRICS, CATCHMENTS, DEMO_SCORE_INPUTS } from './data/mockData';
+import { DEFAULT_CATCHMENT_CONFIG, CatchmentConfig } from './config/catchmentConfig';
 import { calculateTransparentRiskScore } from './utils/riskScoring';
 import { fetchLiveCatchmentData, LiveCatchmentState } from './utils/openMeteo';
 
@@ -50,6 +50,8 @@ import { CapAlertModal } from './components/CapAlertModal';
 import { CatchmentConfigModal } from './components/CatchmentConfigModal';
 import { Footer } from './components/Footer';
 
+type DashboardMetrics = (typeof SCENARIO_METRICS)['SEVERE'] & { transparentScore: TransparentRiskScore };
+
 export default function App() {
   // Navigation & Operating Mode
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'map' | 'alerts' | 'analytics' | 'about' | 'replay'>('dashboard');
@@ -70,38 +72,43 @@ export default function App() {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
 
   // Live Data State
-  const [liveDataStatus, setLiveDataStatus] = useState<'loading' | 'success' | 'cached' | 'error'>('success');
+  const [liveDataStatus, setLiveDataStatus] = useState<'loading' | 'success' | 'cached' | 'error'>('loading');
   const [isRefreshingLive, setIsRefreshingLive] = useState<boolean>(false);
   const [liveTelemetry, setLiveTelemetry] = useState<LiveCatchmentState | null>(null);
+  const liveTelemetryRef = useRef<LiveCatchmentState | null>(null);
+  liveTelemetryRef.current = liveTelemetry;
 
-  // Fetch Live Data from Open-Meteo
+  // Fetch live data from Open-Meteo for every village in the config
   const loadLiveData = useCallback(async () => {
     setIsRefreshingLive(true);
-    setLiveDataStatus('loading');
+    if (!liveTelemetryRef.current) setLiveDataStatus('loading');
     try {
-      const data = await fetchLiveCatchmentData(
-        catchmentConfig.upstreamTriggerPoint.lat,
-        catchmentConfig.upstreamTriggerPoint.lon
-      );
+      const data = await fetchLiveCatchmentData(catchmentConfig);
       setLiveTelemetry(data);
-      if (data.isCached) {
-        setLiveDataStatus('cached');
-      } else {
-        setLiveDataStatus('success');
-      }
+      setLiveDataStatus(data.isCached ? 'cached' : 'success');
     } catch (err) {
-      console.warn('Live data fetch failed, using fallback:', err);
+      console.warn('Live data unavailable:', err);
+      setLiveTelemetry(null);
       setLiveDataStatus('error');
     } finally {
       setIsRefreshingLive(false);
     }
-  }, [catchmentConfig.upstreamTriggerPoint.lat, catchmentConfig.upstreamTriggerPoint.lon]);
+  }, [catchmentConfig]);
 
-  // Load live data on mode switch to LIVE
+  // Load live data when Live mode is selected (or the catchment config changes)
   useEffect(() => {
     if (appMode === 'LIVE') {
       loadLiveData();
     }
+  }, [appMode, loadLiveData]);
+
+  // Refresh live data every 10 minutes while Live mode is active
+  useEffect(() => {
+    if (appMode !== 'LIVE') return;
+    const id = setInterval(() => {
+      loadLiveData();
+    }, 10 * 60 * 1000);
+    return () => clearInterval(id);
   }, [appMode, loadLiveData]);
 
   // Auto-cycle scenarios for hands-free presentations in Demo mode
@@ -120,119 +127,76 @@ export default function App() {
   const activeCatchment = CATCHMENTS.find((c) => c.id === selectedCatchmentId) || CATCHMENTS[0];
   const demoMetrics = SCENARIO_METRICS[scenario];
 
+  // True when Live mode is selected but no real data could be loaded: never fall back to demo numbers.
+  const liveUnavailable = appMode === 'LIVE' && !liveTelemetry;
+
   // Derive Active Telemetry & Transparent Score
-  const activeMetrics = React.useMemo(() => {
+  const activeMetrics: DashboardMetrics = React.useMemo(() => {
     if (appMode === 'LIVE' && liveTelemetry) {
-      const transparentScore = liveTelemetry.riskScore;
-
-      // Compute dynamic kinematic lead times for villages
-      const updatedVillages: VillageData[] = catchmentConfig.villages.map((v) => {
-        const lead = calculateKinematicLeadTime(v.distanceFromTriggerKm, 3.5);
-        return {
-          id: v.id,
-          name: v.name,
-          population: v.population,
-          elevationM: v.elevationM,
-          distanceFromRiverM: 120,
-          evacuationTimeMinutes: lead.conservativeMinutes,
-          riskLevel: transparentScore.riskLevel,
-          evacuationStatus:
-            transparentScore.riskLevel === 'SEVERE'
-              ? 'ORDERED'
-              : transparentScore.riskLevel === 'HIGH'
-              ? 'PREPARED'
-              : 'STANDBY',
-          safeElevationM: v.elevationM + 140,
-          nearestShelter: v.nearestShelter,
-          shelterCapacity: 500,
-          cluster: v.cluster,
-        };
-      });
-
-      const rainMetric = liveTelemetry.metrics.find((m) => m.iconType === 'rain');
-      const riverMetric = liveTelemetry.metrics.find((m) => m.iconType === 'river');
-      const soilMetric = liveTelemetry.metrics.find((m) => m.iconType === 'soil');
-
+      const score = liveTelemetry.riskScore;
+      const driverVillage = liveTelemetry.villages.find((v) => v.name === liveTelemetry.drivingVillageName);
+      const flagged = liveTelemetry.villages.filter((v) => v.riskLevel === 'HIGH' || v.riskLevel === 'SEVERE');
+      const priority: Record<RiskLevel, string> = {
+        SEVERE: 'FOLLOW LOCAL AUTHORITY INSTRUCTIONS: MOVE TO HIGH GROUND',
+        HIGH: 'PREPARE EVACUATION ROUTE AND ESSENTIALS',
+        MEDIUM: 'STAY ALERT AND MONITOR THE ADVISORY CHANNEL',
+        LOW: 'NORMAL MONITORING',
+      };
       return {
-        overallRisk: transparentScore.riskLevel,
-        riskScore: transparentScore.totalScore,
-        confidence: 'Design target: 85% accuracy',
-        leadTime: '16m – 40m',
+        overallRisk: score.riskLevel,
+        riskScore: score.totalScore,
+        confidence: 0,
+        leadTime: driverVillage?.leadTimeRangeDisplay ? `${driverVillage.leadTimeRangeDisplay} (est.)` : 'n/a',
         lastUpdated: liveTelemetry.lastUpdatedText,
         headline: liveTelemetry.headline,
         description: liveTelemetry.description,
-        rainfall: {
-          currentMm: rainMetric?.numericValue || 4.2,
-          hourlyRateMm: rainMetric?.numericValue || 4.2,
-          status: rainMetric?.status || 'Moderate',
-          sensorLocation: 'Rishi Ganga AWS-01 (Open-Meteo Ingest)',
-          lastPing: liveTelemetry.lastUpdatedText,
-          trend: rainMetric?.trend === 'Increasing' ? ('UP' as const) : ('STABLE' as const),
-        },
-        riverLevel: {
-          currentM: +(2.8 + ((riverMetric?.numericValue || 3.5) / 3.5 - 1.0) * 1.5).toFixed(2),
-          dangerLevelM: 5.2,
-          rateOfRiseMPerHour: +(0.15 * ((riverMetric?.numericValue || 3.5) / 3.5)).toFixed(2),
-          sensorLocation: 'Rishi Ganga Canyon Radar (GloFAS Runoff)',
-          lastPing: riverMetric?.sourceTimestamp || 'Hourly sync',
-          trend: riverMetric?.trend === 'Increasing' ? ('UP' as const) : ('STABLE' as const),
-        },
-        soilMoisture: {
-          saturationPercentage: soilMetric?.numericValue || 64,
-          status: soilMetric?.status || 'Absorptive',
-          sensorLocation: 'Raini Hills Slope TDR Array (Land Surface Assimilation)',
-          lastPing: soilMetric?.sourceTimestamp || 'Hourly sync',
-          trend: soilMetric?.trend === 'Elevated' ? ('UP' as const) : ('STABLE' as const),
-        },
-        terrainSatellite: {
-          slopeInstabilityIndex: 0.72,
-          status: 'High Slope Gradient (>32°)',
-          opticalClearance: 'Cartosat DEM Baseline',
-          lastPass: 'ALOS PALSAR / Cartosat-1 DEM',
-          trend: 'STABLE' as const,
-        },
-        affectedCluster: 'Cluster A & B (Raini, Tapovan)',
-        evacuationPriority:
-          transparentScore.riskLevel === 'SEVERE'
-            ? 'IMMEDIATE VERTICAL EVACUATION TO HIGH GROUND'
-            : transparentScore.riskLevel === 'HIGH'
-            ? 'PREPARE EVACUATION ROUTE & SECURE ESSENTIALS'
-            : 'NORMAL MONITORING',
-        villages: updatedVillages,
-        trendHistory: liveTelemetry.trendHistory.length > 0 ? liveTelemetry.trendHistory : demoMetrics.trendHistory,
-        activeAlerts:
-          transparentScore.riskLevel === 'SEVERE' || transparentScore.riskLevel === 'HIGH'
-            ? demoMetrics.activeAlerts
-            : [],
-        transparentScore,
+        affectedCluster: flagged.length > 0 ? flagged.map((v) => v.name).join(', ') : 'No village above watch level',
+        evacuationPriority: priority[score.riskLevel],
+        rainfall: liveTelemetry.metrics.rainfall,
+        riverLevel: liveTelemetry.metrics.riverLevel,
+        soilMoisture: liveTelemetry.metrics.soilMoisture,
+        terrainSatellite: liveTelemetry.metrics.terrainSatellite,
+        trendHistory: liveTelemetry.trendHistory,
+        villages: liveTelemetry.villages,
+        activeAlerts: liveTelemetry.alerts,
+        transparentScore: score,
       };
     }
 
-    // Demo Mode: calculate transparent score from demo scenario values
-    const demo1h = demoMetrics.rainfall.currentMm;
-    const demo3h = demo1h * 2.2;
-    const demo24h = demo1h * 4.5;
-    const demo72h = demo1h * 6.0;
-    const demoSoil = demoMetrics.soilMoisture.saturationPercentage;
-    const demoRiver = demoMetrics.riverLevel.currentM / 2.8;
-
+    // Demo Simulator: synthetic inputs run through the same scoring engine as Live mode
     const transparentScore = calculateTransparentRiskScore({
-      rain1hMm: demo1h,
-      rain3hMm: demo3h,
-      rain24hMm: demo24h,
-      rain72hAntecedentMm: demo72h,
-      soilMoistureSaturationPct: demoSoil,
-      riverDischargeRatio: demoRiver,
-      freshnessText: `Demo Simulator: ${scenario} Scenario`,
+      ...DEMO_SCORE_INPUTS[scenario],
+      freshnessText: `Demo Simulator: ${scenario} scenario (synthetic inputs)`,
     });
 
     return {
       ...demoMetrics,
       riskScore: transparentScore.totalScore,
       overallRisk: transparentScore.riskLevel,
+      // Keep the demo chart's latest point consistent with the computed score.
+      trendHistory: demoMetrics.trendHistory.map((pt, i, arr) =>
+        i === arr.length - 1 ? { ...pt, riskScore: transparentScore.totalScore } : pt
+      ),
       transparentScore,
     };
-  }, [appMode, liveTelemetry, demoMetrics, catchmentConfig, scenario]);
+  }, [appMode, liveTelemetry, demoMetrics, scenario]);
+
+  // AlertChannelsCard reports (title, value, source, method); MetricSourceModal wants a full record.
+  const inspectChannelMetric = (title: string, value: string, source: string, method: string) => {
+    setInspectMetric({
+      title,
+      value,
+      unit: '',
+      status: 'Simulated',
+      statusLevel: 'LOW',
+      source,
+      timestamp: 'n/a (prototype)',
+      methodNote: method,
+      threshold: 'Design target, not measured',
+    });
+  };
+
+  const showLiveGate = liveUnavailable && currentTab !== 'replay' && currentTab !== 'about';
 
   const handleOpenEmergencyDetails = () => {
     setSelectedVillageForModal(activeMetrics.villages[0] || null);
@@ -343,7 +307,8 @@ export default function App() {
         currentTab={currentTab}
         onTabChange={(tab) => setCurrentTab(tab)}
         overallRisk={activeMetrics.overallRisk}
-        activeAlertsCount={activeMetrics.activeAlerts.length}
+        riskUnknown={liveUnavailable}
+        activeAlertsCount={liveUnavailable ? 0 : activeMetrics.activeAlerts.length}
         appMode={appMode}
         onModeToggle={(m) => setAppMode(m)}
         liveDataStatus={liveDataStatus}
@@ -364,15 +329,47 @@ export default function App() {
         isRefreshingLive={isRefreshingLive}
         liveStatusText={
           liveDataStatus === 'success'
-            ? 'Open-Meteo Weather & GloFAS River Realtime'
+            ? `Open-Meteo forecast + GloFAS model data, ${catchmentConfig.villages.length} village cells`
             : liveDataStatus === 'cached'
-            ? 'Open-Meteo Cached Telemetry (CORS Resilient)'
+            ? 'Cached Open-Meteo response (offline fallback)'
+            : liveDataStatus === 'error'
+            ? 'No live data available'
             : 'Connecting...'
         }
       />
 
       {/* Main Viewport Container */}
       <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        {showLiveGate ? (
+          <div
+            role="status"
+            className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-xs space-y-3"
+          >
+            <h2 className="text-base font-bold text-slate-900">
+              {liveDataStatus === 'loading' ? 'Loading live data' : 'No live data available'}
+            </h2>
+            <p className="text-sm text-slate-600">
+              {liveDataStatus === 'loading'
+                ? 'Fetching Open-Meteo model data for each village.'
+                : 'HydroGuard could not reach Open-Meteo and has no recent cached response, so it is showing no risk values instead of guessing. Check your connection and try again, or switch to Demo Simulator.'}
+            </p>
+            <div className="flex justify-center gap-2">
+              <button
+                onClick={loadLiveData}
+                disabled={isRefreshingLive}
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60 cursor-pointer"
+              >
+                Try again
+              </button>
+              <button
+                onClick={() => setAppMode('DEMO')}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 cursor-pointer"
+              >
+                Switch to Demo Simulator
+              </button>
+            </div>
+          </div>
+        ) : (
         <AnimatePresence mode="wait">
           {/* TAB 1: DASHBOARD */}
           {currentTab === 'dashboard' && (
@@ -391,7 +388,7 @@ export default function App() {
                     Flash Flood Decision Support System
                   </h1>
                   <p className="mt-1 text-sm text-slate-600">
-                    Transparent 4-factor risk scoring, kinematic lead time modeling, and OASIS CAP 1.2 early warning.
+                    Rule-based, explainable risk scoring, wave travel-time estimates, and a CAP 1.2 exercise export.
                   </p>
                 </div>
 
@@ -408,9 +405,29 @@ export default function App() {
                   </div>
 
                   {appMode === 'LIVE' ? (
-                    <div className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 sm:px-3 py-1.5 text-emerald-800 shadow-2xs shrink-0">
-                      <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse shrink-0" />
-                      <span className="font-bold">Live Data Active</span>
+                    <div
+                      className={`flex items-center gap-1.5 rounded-lg border px-2.5 sm:px-3 py-1.5 shadow-2xs shrink-0 ${
+                        liveDataStatus === 'success'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                          : liveDataStatus === 'cached'
+                          ? 'border-amber-200 bg-amber-50 text-amber-800'
+                          : 'border-slate-200 bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full shrink-0 ${
+                          liveDataStatus === 'success' ? 'bg-emerald-600 animate-pulse' : liveDataStatus === 'cached' ? 'bg-amber-500' : 'bg-slate-400'
+                        }`}
+                      />
+                      <span className="font-bold">
+                        {liveDataStatus === 'success'
+                          ? 'Live model data'
+                          : liveDataStatus === 'cached'
+                          ? 'Cached model data'
+                          : liveDataStatus === 'error'
+                          ? 'No live data'
+                          : 'Loading live data'}
+                      </span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 sm:px-3 py-1.5 text-purple-800 shadow-2xs shrink-0">
@@ -490,7 +507,7 @@ export default function App() {
                 <MainRiskCard
                   overallRisk={activeMetrics.overallRisk}
                   riskScore={activeMetrics.riskScore}
-                  confidence={activeMetrics.confidence}
+                  villages={activeMetrics.villages}
                   leadTime={activeMetrics.leadTime}
                   lastUpdated={activeMetrics.lastUpdated}
                   headline={activeMetrics.headline}
@@ -523,6 +540,7 @@ export default function App() {
                   riverLevel={activeMetrics.riverLevel}
                   soilMoisture={activeMetrics.soilMoisture}
                   terrainSatellite={activeMetrics.terrainSatellite}
+                  isLive={appMode === 'LIVE'}
                   onInspectMetric={(data) => setInspectMetric(data)}
                 />
               </div>
@@ -542,7 +560,6 @@ export default function App() {
                 <RiskTrendChart
                   trendHistory={activeMetrics.trendHistory}
                   overallRisk={activeMetrics.overallRisk}
-                  onInspectMetric={(data) => setInspectMetric(data)}
                 />
               </div>
 
@@ -552,7 +569,8 @@ export default function App() {
                   villages={activeMetrics.villages}
                   overallRisk={activeMetrics.overallRisk}
                   onViewRouteModal={handleOpenVillageRoute}
-                  onGenerateCapAlert={handleGenerateCap}
+                  onOpenCapAlertModal={handleGenerateCap}
+                  onOpenConfigModal={() => setIsConfigModalOpen(true)}
                   onInspectMetric={(data) => setInspectMetric(data)}
                 />
               </div>
@@ -572,7 +590,7 @@ export default function App() {
                 />
 
                 {/* 7. Multi-Channel Warning System Card with Honest Design Targets */}
-                <AlertChannelsCard onInspectMetric={(data) => setInspectMetric(data)} />
+                <AlertChannelsCard onInspectMetric={inspectChannelMetric} />
               </div>
             </motion.div>
           )}
@@ -636,11 +654,12 @@ export default function App() {
                 villages={activeMetrics.villages}
                 overallRisk={activeMetrics.overallRisk}
                 onViewRouteModal={handleOpenVillageRoute}
-                onGenerateCapAlert={handleGenerateCap}
+                onOpenCapAlertModal={handleGenerateCap}
+                  onOpenConfigModal={() => setIsConfigModalOpen(true)}
                 onInspectMetric={(data) => setInspectMetric(data)}
               />
 
-              <AlertChannelsCard onInspectMetric={(data) => setInspectMetric(data)} />
+              <AlertChannelsCard onInspectMetric={inspectChannelMetric} />
             </motion.div>
           )}
 
@@ -662,6 +681,7 @@ export default function App() {
               )}
 
               <AnalyticsView
+                isLive={appMode === 'LIVE'}
                 trendHistory={activeMetrics.trendHistory}
                 overallRisk={activeMetrics.overallRisk}
                 villages={activeMetrics.villages}
@@ -690,7 +710,7 @@ export default function App() {
                 'replay'
               )}
 
-              <EventReplayView onInspectMetric={(data) => setInspectMetric(data)} />
+              <EventReplayView />
             </motion.div>
           )}
 
@@ -715,6 +735,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        )}
       </main>
 
       {/* Emergency Operational Details Modal */}
@@ -730,7 +751,6 @@ export default function App() {
 
       {/* Metric Provenance & Source Audit Modal */}
       <MetricSourceModal
-        isOpen={!!inspectMetric}
         onClose={() => setInspectMetric(null)}
         data={inspectMetric}
       />
@@ -739,8 +759,7 @@ export default function App() {
       <WhyThisScoreModal
         isOpen={isWhyScoreOpen}
         onClose={() => setIsWhyScoreOpen(false)}
-        score={activeMetrics.transparentScore}
-        catchmentName={catchmentConfig.catchmentName}
+        scoreData={activeMetrics.transparentScore}
       />
 
       {/* OASIS CAP 1.2 XML Generator Modal */}
@@ -748,16 +767,16 @@ export default function App() {
         isOpen={!!capModalVillage}
         onClose={() => setCapModalVillage(null)}
         village={capModalVillage}
-        riskLevel={activeMetrics.overallRisk}
-        catchmentConfig={catchmentConfig}
+        overallRisk={activeMetrics.overallRisk}
       />
 
       {/* Editable Catchment Configuration Modal */}
       <CatchmentConfigModal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
-        config={catchmentConfig}
-        onSaveConfig={(updated) => setCatchmentConfig(updated)}
+        currentConfig={catchmentConfig}
+        onSave={(updated) => setCatchmentConfig(updated)}
+        onReset={() => setCatchmentConfig(DEFAULT_CATCHMENT_CONFIG)}
       />
 
       {/* Operational System Footer */}

@@ -52,7 +52,7 @@ export const DemoScenarioBar: React.FC<DemoScenarioBarProps> = ({
             </span>
 
             <div className="text-[11px] text-emerald-950 font-medium truncate">
-              Chamoli / Rishi Ganga (30.488° N, 79.697° E) • <span className="font-semibold text-emerald-800">{liveStatusText}</span>
+              Chamoli / Rishi Ganga catchment, one model grid cell per village • <span className="font-semibold text-emerald-800">{liveStatusText}</span>
             </div>
           </div>
 
@@ -155,12 +155,12 @@ export const DemoScenarioBar: React.FC<DemoScenarioBarProps> = ({
 
             {/* Critical Flash Flood */}
             <button
-              onClick={() => onScenarioChange('CRITICAL')}
+              onClick={() => onScenarioChange('SEVERE')}
               className={`relative flex items-center justify-center gap-1 sm:gap-1.5 rounded-md px-1.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer ${
-                scenario === 'CRITICAL' ? 'text-red-900 font-bold' : 'text-slate-600 hover:text-slate-900'
+                scenario === 'SEVERE' ? 'text-red-900 font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {scenario === 'CRITICAL' && (
+              {scenario === 'SEVERE' && (
                 <motion.div
                   layoutId="scenarioIndicator"
                   className="absolute inset-0 rounded-md bg-white shadow-xs ring-1 ring-red-500/30"
@@ -168,7 +168,7 @@ export const DemoScenarioBar: React.FC<DemoScenarioBarProps> = ({
                 />
               )}
               <span className="relative z-10 h-2 w-2 shrink-0 rounded-full bg-red-600" />
-              <span className="relative z-10 truncate">Critical Surge</span>
+              <span className="relative z-10 truncate">Severe Surge</span>
             </button>
           </div>
 

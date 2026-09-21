@@ -23,6 +23,8 @@ interface MultiSourceCardsProps {
   riverLevel: SourceMetric;
   soilMoisture: SourceMetric;
   terrainSatellite: SourceMetric;
+  /** Live mode shows model grid cells; Demo mode shows simulated nodes. Neither is a real sensor. */
+  isLive?: boolean;
   onInspectMetric?: (data: MetricInspectionData) => void;
 }
 
@@ -31,6 +33,7 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
   riverLevel,
   soilMoisture,
   terrainSatellite,
+  isLive = false,
   onInspectMetric,
 }) => {
   const [showPlainLanguage, setShowPlainLanguage] = useState(true);
@@ -40,13 +43,13 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
       metric: rainfall,
       icon: '🌧️',
       label: 'Telemetry Source 01',
-      stationId: 'CHAM-RN-01',
-      hardware: 'Campbell Scientific TB4-L (SDI-12) / Open-Meteo',
-      accuracy: '±0.1 mm/pulse',
+      stationId: 'SIM-RAIN',
+      hardware: '',
+      accuracy: '',
       gradId: 'gradRain',
       plainText:
         rainfall.statusLevel === 'SEVERE'
-          ? 'Cloudburst conditions: Rainfall is accumulating too quickly for mountain streams to drain.'
+          ? 'Very heavy rainfall: rain is accumulating faster than mountain streams can drain.'
           : rainfall.statusLevel === 'HIGH'
           ? 'Heavy continuous rainfall. Mountain gullies and side torrents are filling rapidly.'
           : 'Normal mountain weather: Light showers within safe seasonal limits.',
@@ -55,24 +58,24 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
       metric: riverLevel,
       icon: '🌊',
       label: 'Telemetry Source 02',
-      stationId: 'CHAM-RG-04',
-      hardware: 'Vega VEGAPULS C21 (80 GHz Radar) / GloFAS',
-      accuracy: '±2.0 mm / 15m range',
+      stationId: 'SIM-RIVER',
+      hardware: '',
+      accuracy: '',
       gradId: 'gradRiver',
       plainText:
         riverLevel.statusLevel === 'SEVERE'
-          ? 'River is surging high (surpassing danger mark). Low bridges and riverside footpaths are submerged.'
+          ? 'River flow is far above its recent level. Low bridges and riverside footpaths may be at risk.'
           : riverLevel.statusLevel === 'HIGH'
-          ? 'River stage rising steadily. Water is touching the warning mark at narrow gorge bottlenecks.'
+          ? 'River flow is rising above its recent level. Narrow gorge sections may fill first.'
           : 'River flow is tranquil and well within its natural embankments.',
     },
     {
       metric: soilMoisture,
       icon: '💧',
       label: 'Telemetry Source 03',
-      stationId: 'CHAM-SL-09',
-      hardware: 'Stevens HydraProbe SDI-12 (TDR) / IFS Land',
-      accuracy: '±1.5% Volumetric Water Content',
+      stationId: 'SIM-SOIL',
+      hardware: '',
+      accuracy: '',
       gradId: 'gradSoil',
       plainText:
         soilMoisture.statusLevel === 'SEVERE'
@@ -85,18 +88,36 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
       metric: terrainSatellite,
       icon: '🛰️',
       label: 'Telemetry Source 04',
-      stationId: 'ESA-S1-ORB',
-      hardware: 'Copernicus Sentinel-1 SAR + ALOS DEM',
-      accuracy: '12.5m InSAR Coherence Matrix',
+      stationId: 'SIM-TERRAIN',
+      hardware: '',
+      accuracy: '',
       gradId: 'gradSat',
       plainText:
         terrainSatellite.statusLevel === 'SEVERE'
-          ? 'Upstream gorge bottleneck detected. If temporary debris dams release, a surge wave will hit within 45 mins.'
+          ? 'Simulated: slope data would flag a possible upstream blockage here.'
           : terrainSatellite.statusLevel === 'HIGH'
-          ? 'Satellite radar shows slope movement and heavy mud runoff upstream.'
-          : 'Valley slopes and upstream glaciers are stable with no blockages detected.',
+          ? 'Simulated: slope data would show movement and heavy runoff upstream.'
+          : 'Simulated: no slope movement or blockage flagged.',
     },
   ];
+
+  const displayCards = cards.map((c) =>
+    isLive
+      ? {
+          ...c,
+          stationId: c.metric.stationLabel ?? 'Model grid cell',
+          label: c.metric.sourceKindLabel ?? 'Model data',
+          hardware: c.metric.hardwareLabel ?? 'Model grid cell (not a sensor)',
+          accuracy: c.metric.accuracyLabel ?? 'Model output',
+          plainText: c.metric.unavailable ? `No data: ${c.metric.unavailableReason ?? 'unavailable'}.` : c.plainText,
+        }
+      : {
+          ...c,
+          label: 'Simulated node',
+          hardware: 'Simulated input (demo, no real hardware)',
+          accuracy: 'Synthetic data',
+        }
+  );
 
   const getStatusBadge = (statusLevel: RiskLevel) => {
     switch (statusLevel) {
@@ -124,7 +145,7 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
     }
   };
 
-  const handleCardClick = (item: typeof cards[0]) => {
+  const handleCardClick = (item: (typeof displayCards)[0]) => {
     onInspectMetric?.({
       title: item.metric.title,
       value: item.metric.value,
@@ -179,18 +200,19 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
             }`}
           >
             <Database className="h-3.5 w-3.5 text-slate-600" />
-            <span>Sensor Specs</span>
+            <span>Data Source</span>
           </button>
         </div>
       </div>
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((item, idx) => {
+        {displayCards.map((item, idx) => {
           const { metric, icon, label, stationId, hardware, accuracy, gradId, plainText } = item;
           const colors = getSparklineColors(metric.statusLevel);
 
-          const spark = metric.sparkline && metric.sparkline.length > 0 ? metric.sparkline : [1, 2, 3, 4, 5, 6];
+          const hasSpark = !!metric.sparkline && metric.sparkline.length >= 2;
+          const spark = hasSpark ? metric.sparkline : [0, 0];
           const minVal = Math.min(...spark);
           const maxVal = Math.max(...spark);
           const range = maxVal - minVal || 1;
@@ -263,20 +285,24 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
                 <div className="mt-4 flex items-baseline justify-between gap-2">
                   <div className="flex items-baseline gap-1.5 min-w-0">
                     <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 tracking-tight truncate tabular-nums">
-                      <AnimatedNumber
-                        value={metric.numericValue}
-                        decimals={metric.unit === 'm' || metric.unit === 'mm' ? 1 : 0}
-                        duration={500}
-                      />
+                      {metric.unavailable ? (
+                        <span className="text-lg sm:text-xl text-slate-500">{metric.value}</span>
+                      ) : (
+                        <AnimatedNumber
+                          value={metric.numericValue}
+                          decimals={metric.unit === 'm' || metric.unit === 'mm' ? 1 : 0}
+                          duration={500}
+                        />
+                      )}
                     </span>
                     <span className="text-xs sm:text-sm font-semibold text-slate-500 font-mono shrink-0">
-                      {metric.unit}
+                      {metric.unavailable ? '' : metric.unit}
                     </span>
                   </div>
 
                   {/* Trend Badge */}
                   <div className="flex items-center gap-1 text-xs font-semibold text-slate-600 shrink-0">
-                    {metric.trend === 'Increasing' ? (
+                    {metric.unavailable ? null : metric.trend === 'Increasing' ? (
                       <span className="inline-flex items-center gap-1 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-bold text-red-700 border border-red-100 animate-pulse">
                         <ArrowUpRight className="h-3 w-3 text-red-600 shrink-0" />
                         <span className="whitespace-nowrap">SURGE</span>
@@ -310,9 +336,10 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
                       <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
                       Trend History
                     </span>
-                    <span>Min: {minVal.toFixed(1)} • Max: {maxVal.toFixed(1)}</span>
+                    <span>{hasSpark ? `Min: ${minVal.toFixed(1)} • Max: ${maxVal.toFixed(1)}` : 'No history'}</span>
                   </div>
                   <div className="h-12 w-full rounded-lg bg-slate-50/80 p-1 border border-slate-100 flex items-center overflow-hidden">
+                    {hasSpark && (
                     <svg
                       viewBox={`0 0 ${width} ${height}`}
                       preserveAspectRatio="none"
@@ -339,6 +366,7 @@ export const MultiSourceCards: React.FC<MultiSourceCardsProps> = ({
                         points={points}
                       />
                     </svg>
+                    )}
                   </div>
                 </div>
               </div>

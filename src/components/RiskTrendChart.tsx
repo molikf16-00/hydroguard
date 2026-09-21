@@ -23,12 +23,26 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
   trendHistory,
   overallRisk,
 }) => {
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(trendHistory.length - 1);
+  const [hoveredIdxRaw, setHoveredIdx] = useState<number | null>(trendHistory.length - 1);
+  // Clamp so switching between datasets of different length (Live 24 pts vs Demo 7 pts) never reads past the end.
+  const hoveredIdx: number | null =
+    hoveredIdxRaw !== null && hoveredIdxRaw >= 0 && hoveredIdxRaw < trendHistory.length ? hoveredIdxRaw : trendHistory.length - 1;
   const [showRainfall, setShowRainfall] = useState(true);
   const [showRiver, setShowRiver] = useState(true);
+  // River stage exists only in the Demo Simulator. Live mode has no river-stage measurement.
+  const hasRiver = trendHistory.length > 0 && trendHistory.every((pt) => typeof pt.riverLevelM === 'number');
+  const riverVisible = hasRiver && showRiver;
   const [showRiskScore, setShowRiskScore] = useState(true);
 
-  const activePoint = hoveredIdx !== null ? trendHistory[hoveredIdx] : trendHistory[trendHistory.length - 1];
+  const activePoint = trendHistory[hoveredIdx as number] ?? trendHistory[trendHistory.length - 1];
+
+  if (trendHistory.length === 0 || !activePoint) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs text-sm text-slate-600">
+        No trend data available yet.
+      </div>
+    );
+  }
 
   // SVG plotting math
   const svgWidth = 800;
@@ -42,13 +56,13 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
   const chartH = svgHeight - padTop - padBottom;
 
   // Scales
-  const maxRain = 140; // mm
+  const maxRain = Math.max(140, ...trendHistory.map((pt) => pt.rainfallMm)); // mm
   const maxRiver = 7.0; // meters
   const dangerRiver = 5.2; // meters
   const maxRisk = 100; // score
 
   const getX = (index: number) => {
-    return padLeft + (index / (trendHistory.length - 1)) * chartW;
+    return padLeft + (index / Math.max(1, trendHistory.length - 1)) * chartW;
   };
 
   const getRainY = (mm: number) => {
@@ -64,7 +78,9 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
   };
 
   const rainPoints = trendHistory.map((pt, i) => `${getX(i)},${getRainY(pt.rainfallMm)}`).join(' ');
-  const riverPoints = trendHistory.map((pt, i) => `${getX(i)},${getRiverY(pt.riverLevelM)}`).join(' ');
+  const riverPoints = hasRiver
+    ? trendHistory.map((pt, i) => `${getX(i)},${getRiverY(pt.riverLevelM as number)}`).join(' ')
+    : '';
   const riskPoints = trendHistory.map((pt, i) => `${getX(i)},${getRiskY(pt.riskScore)}`).join(' ');
 
   const riskArea = `${padLeft},${padTop + chartH} ${riskPoints} ${svgWidth - padRight},${padTop + chartH}`;
@@ -78,11 +94,13 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-slate-800" />
             <h3 className="text-sm font-bold uppercase tracking-tight text-slate-900">
-              Catchment Multi-Signal Hydrological Trend (Past 6 Hours)
+              Catchment Hydrological Trend (Past {Math.max(1, trendHistory.length - 1)} Hours)
             </h3>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Synchronized comparison of cumulative rainfall, river stage rise, and composite flood risk
+            {hasRiver
+              ? 'Simulated comparison of cumulative rainfall, river stage rise, and composite flood risk'
+              : 'Rolling 24 h rainfall, topsoil moisture and the composite risk score recomputed for each past hour (model data)'}
           </p>
         </div>
 
@@ -100,6 +118,7 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
             <span>Rainfall (mm)</span>
           </button>
 
+          {hasRiver && (
           <button
             onClick={() => setShowRiver(!showRiver)}
             className={`cursor-pointer inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition border ${
@@ -111,6 +130,7 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
             <span className="h-2 w-2 rounded-full bg-cyan-600" />
             <span>River Stage (m)</span>
           </button>
+          )}
 
           <button
             onClick={() => setShowRiskScore(!showRiskScore)}
@@ -155,6 +175,8 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
             );
           })}
 
+          {hasRiver && (
+            <>
           {/* Critical River Danger Level Line (5.2m) */}
           <line
             x1={padLeft}
@@ -174,6 +196,8 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
           >
             CRITICAL DANGER THRESHOLD: 5.2m
           </text>
+            </>
+          )}
 
           {/* Risk Area Under Curve */}
           {showRiskScore && (
@@ -195,7 +219,7 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
             />
           )}
 
-          {showRiver && (
+          {riverVisible && (
             <polyline
               fill="none"
               stroke="#0284c7"
@@ -241,10 +265,10 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
                 />
               )}
               {/* River dot */}
-              {showRiver && (
+              {riverVisible && (
                 <circle
                   cx={getX(hoveredIdx)}
-                  cy={getRiverY(trendHistory[hoveredIdx].riverLevelM)}
+                  cy={getRiverY(trendHistory[hoveredIdx].riverLevelM as number)}
                   r="4.5"
                   fill="#0284c7"
                   stroke="#ffffff"
@@ -302,6 +326,8 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
             0
           </text>
 
+          {hasRiver && (
+            <>
           {/* Right Y Axis Labels (River Meters) */}
           <text x={svgWidth - padRight + 8} y={padTop + 4} textAnchor="start" fill="#64748b" className="text-[9px] font-mono">
             7.0m
@@ -312,6 +338,8 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
           <text x={svgWidth - padRight + 8} y={padTop + chartH} textAnchor="start" fill="#64748b" className="text-[9px] font-mono">
             0m
           </text>
+                    </>
+          )}
         </svg>
       </div>
 
@@ -333,13 +361,15 @@ export const RiskTrendChart: React.FC<RiskTrendChartProps> = ({
             </span>
           </div>
 
+          {hasRiver && (
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-cyan-600" />
             <span className="text-slate-500">Stage:</span>
-            <span className={`font-mono font-bold ${activePoint.riverLevelM >= 5.2 ? 'text-red-600' : 'text-slate-900'}`}>
-              <AnimatedNumber value={activePoint.riverLevelM} duration={250} decimals={1} /> m
+            <span className={`font-mono font-bold ${(activePoint.riverLevelM ?? 0) >= 5.2 ? 'text-red-600' : 'text-slate-900'}`}>
+              <AnimatedNumber value={activePoint.riverLevelM ?? 0} duration={250} decimals={1} /> m
             </span>
           </div>
+          )}
 
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-rose-600" />

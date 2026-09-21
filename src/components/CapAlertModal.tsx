@@ -32,26 +32,48 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
 
   if (!isOpen) return null;
 
-  const targetVillageName = village?.name || 'Raini (Upper & Lower Gorge)';
-  const targetCluster = village?.cluster || 'Cluster A (Upper Gorge Confluence)';
-  const targetLat = village?.lat || 30.4884;
-  const targetLon = village?.lon || 79.6972;
-  const leadTimeStr = village?.leadTimeRangeDisplay || '16m – 40m (Estimated)';
-
+  const tierLevel: RiskLevel = village?.riskLevel ?? overallRisk;
+  const targetVillageName = village?.name || 'No village selected';
+  const targetCluster = village?.cluster || 'n/a';
+  const targetLat = village?.lat ?? 30.4884;
+  const targetLon = village?.lon ?? 79.6972;
+  const leadTimeStr = village?.leadTimeRangeDisplay || village?.estimatedImpactTime || 'n/a';
+  const tierLabel: Record<RiskLevel, string> = {
+    SEVERE: 'Severe tier',
+    HIGH: 'High tier',
+    MEDIUM: 'Medium tier',
+    LOW: 'Low tier (no alert warranted)',
+  };
+  const headlineByTier: Record<RiskLevel, string> = {
+    SEVERE: `EXERCISE: SEVERE FLASH FLOOD RISK, ${targetVillageName.toUpperCase()}`,
+    HIGH: `EXERCISE: FLOOD WATCH, ${targetVillageName.toUpperCase()}`,
+    MEDIUM: `EXERCISE: WEATHER ADVISORY, ${targetVillageName.toUpperCase()}`,
+    LOW: `EXERCISE: NO ALERT WARRANTED, ${targetVillageName.toUpperCase()}`,
+  };
+  const descriptionByTier: Record<RiskLevel, string> = {
+    SEVERE: 'Modelled rainfall, soil moisture and river indicators are at a severe level for this village.',
+    HIGH: 'Several modelled indicators are above their watch levels for this village.',
+    MEDIUM: 'Modelled rainfall and soil moisture are above normal for this village.',
+    LOW: 'Modelled indicators are within normal ranges. This template is shown for demonstration only.',
+  };
+  const instructionByTier: Record<RiskLevel, string> = {
+    SEVERE: `Follow instructions from local authorities. Suggested shelter: ${village?.nearestShelter || 'nearest designated high ground'}. Avoid riverbeds and bridge crossings.`,
+    HIGH: 'Prepare emergency supplies and be ready to move to the assembly point if told to.',
+    MEDIUM: 'Stay alert, keep away from riverbeds, and monitor the local advisory channel.',
+    LOW: 'No action needed.',
+  };
   const capXml = generateCapXml({
-    headline: `IMMEDIATE FLASH FLOOD WARNING: ${targetVillageName.toUpperCase()}`,
-    description: `Critical hydrological surge detected in Rishi Ganga upper headwaters. Peak flood wave expected within estimated lead horizon. High-ground evacuation ordered immediately.`,
-    instruction: `All residents in low-lying riparian areas must immediately evacuate uphill via designated escape trails to ${village?.nearestShelter || 'High Ground Safe Refuge'}. Do not attempt bridge crossings. Carry emergency rations and battery-powered radios.`,
+    headline: headlineByTier[tierLevel],
+    description: descriptionByTier[tierLevel],
+    instruction: instructionByTier[tierLevel],
     villageName: targetVillageName,
     cluster: targetCluster,
     lat: targetLat,
     lon: targetLon,
+    elevationM: village?.elevationM,
     leadTimeDisplay: leadTimeStr,
-    urgency: 'Immediate',
-    severity: 'Extreme',
-    certainty: 'Observed',
+    riskLevel: tierLevel,
   });
-
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(capXml);
@@ -63,7 +85,7 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
   };
 
   const handleDownload = () => {
-    downloadCapXmlFile(capXml, `hydroguard-cap-alert-${village?.id || 'rishi-ganga'}.xml`);
+    downloadCapXmlFile(capXml, `hydroguard-cap-exercise-${village?.id || 'village'}.xml`);
   };
 
   return (
@@ -85,14 +107,14 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-red-700 font-mono">
-                    OASIS CAP v1.2 PROTOCOL INTERFACE
+                    OASIS CAP v1.2 FORMAT (PROTOTYPE)
                   </span>
                   <span className="rounded bg-red-600 text-white px-1.5 py-0.2 text-[9px] font-bold uppercase font-mono">
-                    Level-1 Red Alert
+                    Exercise: {tierLabel[tierLevel]}
                   </span>
                 </div>
                 <h3 className="text-base font-extrabold text-slate-900">
-                  Common Alerting Protocol (CAP 1.2) XML Output
+                  Common Alerting Protocol (CAP 1.2) Exercise Payload
                 </h3>
               </div>
             </div>
@@ -106,16 +128,22 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
           </div>
 
           <div className="p-6 space-y-4 text-xs">
+            <div
+              role="note"
+              className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700"
+            >
+              PROTOTYPE EXERCISE: this is not an official alert. HydroGuard is not connected to any alerting authority.
+            </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
-                  TARGET AREA & ESTIMATED LEAD TIME
+                  TARGET AREA & ESTIMATED WAVE TRAVEL TIME
                 </span>
                 <span className="font-bold text-slate-900 text-sm">
                   {targetVillageName} — {targetCluster}
                 </span>
                 <span className="text-[11px] text-slate-500 block">
-                  Lead Time: <strong className="font-mono text-red-700">{leadTimeStr}</strong> (kinematic range)
+                  Lead Time: <strong className="font-mono text-red-700">{leadTimeStr}</strong> (assumption-based estimate)
                 </span>
               </div>
 
@@ -156,11 +184,10 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-600 space-y-1">
               <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-slate-800 text-[10px] font-mono">
                 <Info className="h-3.5 w-3.5 text-slate-600" />
-                <span>Interoperability Compliance with National Telecom & NDMA Sachet</span>
+                <span>Format only: not connected to any alerting authority</span>
               </div>
               <p className="text-[11px] leading-relaxed">
-                This machine-readable payload adheres to OASIS Standard CAP-V1.2. In emergency operation, it is ingested directly by national telecom Cell Broadcast Centers (CBC) to trigger geotargeted cell-broadcast vibration tones and siren RTUs without requiring smartphone internet connectivity.
-              </p>
+                This shows how a HydroGuard result could be expressed in the OASIS CAP 1.2 format that alerting systems use. The payload is marked status=Exercise and uses placeholder sender details. Sending real alerts would need agreement with, and issuance by, the responsible authority.</p>
             </div>
           </div>
 

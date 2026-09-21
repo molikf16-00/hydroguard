@@ -34,6 +34,12 @@ export interface VillageData {
   walkingDistanceKm?: number;
   leadTimeRangeDisplay?: string;
   leadTimeFormula?: string;
+  /** Per-village transparent risk score (0-100), present in Live mode. */
+  riskScore?: number;
+  /** True when the village figures (shelter capacity, river distance...) are illustrative config values. */
+  illustrative?: boolean;
+  distanceFromRiverM?: number;
+  shelterCapacity?: number;
 }
 
 export interface SourceMetric {
@@ -43,7 +49,7 @@ export interface SourceMetric {
   numericValue: number;
   unit: string;
   trend: 'Increasing' | 'Decreasing' | 'Stable' | 'Elevated';
-  status: 'Normal' | 'Moderate' | 'High' | 'Critical' | 'Highly saturated';
+  status: 'Normal' | 'Moderate' | 'High' | 'Critical' | 'Highly saturated' | 'Unavailable' | 'Not integrated';
   statusLevel: RiskLevel;
   thresholdLabel: string;
   thresholdValue: string;
@@ -52,12 +58,21 @@ export interface SourceMetric {
   sourceName?: string;
   sourceTimestamp?: string;
   sourceMethod?: string;
+  /** Overrides for the card header (Live mode uses these to say "model grid cell", never a sensor). */
+  stationLabel?: string;
+  sourceKindLabel?: string;
+  hardwareLabel?: string;
+  accuracyLabel?: string;
+  /** True when no value could be fetched or the input is not integrated yet. */
+  unavailable?: boolean;
+  unavailableReason?: string;
 }
 
 export interface TrendPoint {
   time: string;
   rainfallMm: number;
-  riverLevelM: number;
+  /** Simulated river stage. Only present in Demo Simulator data; Live mode has no river-stage measurement. */
+  riverLevelM?: number;
   riskScore: number; // 0 to 100
   soilSaturationPct: number;
   timestampIso?: string;
@@ -83,7 +98,7 @@ export interface ChannelStatus {
   name: string;
   icon: string;
   technology: string;
-  status: 'OPERATIONAL' | 'STANDBY' | 'READY' | 'MESH_ACTIVE';
+  status: 'OPERATIONAL' | 'STANDBY' | 'READY' | 'MESH_ACTIVE' | 'PLANNED';
   coverage: string;
   latency: string;
   notes: string;
@@ -102,6 +117,8 @@ export interface RiskFactorItem {
   isWatchExceeded: boolean;
   statusColor: 'emerald' | 'amber' | 'orange' | 'red';
   description: string;
+  /** True when the input could not be fetched; the factor is excluded and weights renormalized. */
+  unavailable?: boolean;
 }
 
 export interface SignalAgreement {

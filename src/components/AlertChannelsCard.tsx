@@ -24,17 +24,7 @@ interface AlertChannelsCardProps {
 export const AlertChannelsCard: React.FC<AlertChannelsCardProps> = ({ onInspectMetric }) => {
   const [channels] = useState<ChannelStatus[]>(ALERT_CHANNELS);
   const [testingChannelId, setTestingChannelId] = useState<string | null>(null);
-  const [dispatchLogs, setDispatchLogs] = useState<SimulatedDispatchLogEntry[]>([
-    {
-      id: 'log-001',
-      timestamp: '16:15:22 IST',
-      channelName: 'National SMS Cell Broadcast',
-      destination: 'Raini & Tapovan BTS Towers',
-      latencyTarget: 'Design target: < 4.0s',
-      status: 'ACK RECEIVED (SIMULATED)',
-      payloadSnippet: 'CAP-1.2: FLASH FLOOD WATCH / RESIDENTS REMAIN ALERT',
-    },
-  ]);
+  const [dispatchLogs, setDispatchLogs] = useState<SimulatedDispatchLogEntry[]>([]);
 
   const handleTestDispatch = (channelId: string, channelName: string) => {
     setTestingChannelId(channelId);
@@ -48,7 +38,7 @@ export const AlertChannelsCard: React.FC<AlertChannelsCardProps> = ({ onInspectM
         id: `sim-${Date.now()}`,
         timestamp: timeStr,
         channelName: channelName,
-        destination: 'Sector Gateways (Chamoli Valley)',
+        destination: 'None (simulated)',
         latencyTarget: 'Design target: < 4.0s',
         status: 'ACK RECEIVED (SIMULATED)',
         payloadSnippet: `PING: HANDSHAKE PROBE TO ${channelName.toUpperCase()} [SIMULATED - no message sent]`,
@@ -85,12 +75,12 @@ export const AlertChannelsCard: React.FC<AlertChannelsCardProps> = ({ onInspectM
             </h3>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Decentralized notification dispatch designed for resilient communication in deep valleys
+            Planned notification channels for deep valleys. None of them is connected in this prototype.
           </p>
         </div>
 
         <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-mono text-slate-600 border border-slate-200">
-          GATEWAY DISPATCH INTERFACE
+          CHANNEL DESIGN (SIMULATED)
         </span>
       </div>
 
@@ -133,13 +123,13 @@ export const AlertChannelsCard: React.FC<AlertChannelsCardProps> = ({ onInspectM
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Coverage:</span>
                   <span className="font-mono text-slate-800 font-semibold">
-                    Design target: {ch.coverage.split(' ')[0]}
+                    Not measured (prototype)
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Latency:</span>
                   <span className="font-mono text-slate-900 font-bold">
-                    Design target: {ch.latency}
+                    Not measured (prototype)
                   </span>
                 </div>
               </div>

@@ -61,21 +61,60 @@ export const AboutView: React.FC = () => {
         <div className="max-w-3xl space-y-4">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
             <ShieldAlert className="h-4 w-4" />
-            <span>HIMALAYAN HYDROLOGICAL DISASTER MITIGATION PLATFORM • SPECIFICATION & OPS</span>
+            <span>HIMALAYAN FLASH FLOOD DECISION-SUPPORT PROTOTYPE</span>
           </div>
 
           <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-            HydroGuard — Multi-Source Flash Flood Decision Support System
+            HydroGuard: Flash Flood Decision-Support Prototype
           </h2>
 
           <p className="text-base text-slate-600 leading-relaxed">
-            HydroGuard fuses multi-modal environmental telemetry — <strong>precipitation intensity</strong>, <strong>river stage dynamics</strong>, <strong>soil moisture saturation profiles</strong>, and <strong>high-resolution ALOS/Cartosat DEM slope kinematics</strong> — to compute hyper-local flash flood risk curves and deliver deterministic early warning for vulnerable mountain river basins.
-          </p>
+            HydroGuard is a rule-based decision-support prototype. It takes <strong>modelled rainfall</strong>, <strong>topsoil moisture</strong> and <strong>modelled river discharge</strong> for each village, turns them into an explainable 0-100 risk score, and shows the result with evacuation guidance and a CAP 1.2 exercise export. It does not use field sensors yet, is not calibrated against gauge records, and is not connected to any alerting authority.</p>
 
           <div className="pt-2 text-xs text-slate-600 flex flex-wrap gap-4 font-mono">
-            <div><strong className="text-slate-900">Operational Tier:</strong> Civil Protection & Evacuation Support</div>
-            <div><strong className="text-slate-900">Geographic Scope:</strong> Upper Ganga & Beas Basins (Steep Gorges)</div>
-            <div><strong className="text-slate-900">Communication Grid:</strong> LoRaWAN Mesh + Satellite Failover + CAP v1.2</div>
+            <div><strong className="text-slate-900">Purpose:</strong> Decision support for disaster-management staff</div>
+            <div><strong className="text-slate-900">Prototype scope:</strong> Chamoli / Rishi Ganga catchment, Uttarakhand</div>
+            <div><strong className="text-slate-900">Alert format:</strong> CAP 1.2 export built (exercise only); LoRaWAN and satellite failover are planned</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Built / Simulated / Planned */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+        <div className="border-b border-slate-100 pb-3">
+          <h3 className="text-lg font-bold tracking-tight text-slate-900">What is real, simulated and planned</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Stated plainly so nothing here is mistaken for a deployed system.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 text-xs">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
+            <h4 className="text-sm font-bold text-emerald-800">Built</h4>
+            <ul className="list-disc list-inside space-y-1 text-slate-700">
+              <li>Live Open-Meteo forecast-model rainfall and soil moisture, fetched per village</li>
+              <li>GloFAS modelled river discharge (daily), when available</li>
+              <li>Explainable per-village scoring with a "Why this score" breakdown</li>
+              <li>ERA5 event replay with computed peak and threshold-crossing times</li>
+              <li>CAP 1.2 export, marked as an exercise</li>
+              <li>Web app: React, TypeScript, Vite, Tailwind</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-4 space-y-2">
+            <h4 className="text-sm font-bold text-purple-800">Simulated or illustrative</h4>
+            <ul className="list-disc list-inside space-y-1 text-slate-700">
+              <li>Demo Simulator scenarios (synthetic inputs)</li>
+              <li>Channel test pings (nothing is sent)</li>
+              <li>Village populations, shelters, routes and river distances (not surveyed)</li>
+              <li>Wave-speed assumption of 2-5 m/s and the 0.42 m³/m³ soil capacity</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+            <h4 className="text-sm font-bold text-slate-800">Planned</h4>
+            <ul className="list-disc list-inside space-y-1 text-slate-700">
+              <li>Field rain gauges, river radar and soil probes</li>
+              <li>Calibration against USDMA, CWC and IMD gauge records</li>
+              <li>DEM and Sentinel-1 terrain analysis; cryospheric trigger detection</li>
+              <li>Real SMS, cell broadcast, siren and LoRa integration with the authorities</li>
+              <li>Evaluation of ML models once calibration data exists</li>
+            </ul>
           </div>
         </div>
       </div>
@@ -84,10 +123,10 @@ export const AboutView: React.FC = () => {
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
         <div className="border-b border-slate-100 pb-4">
           <h3 className="text-lg font-bold uppercase tracking-tight text-slate-900">
-            End-to-End Conceptual Early Warning Pipeline
+            Target Pipeline: What Is Built and What Is Planned
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Data Sources → Data Fusion & Preprocessing → ML Prediction Engine → Risk Classification → Early Warning → Community Action
+            Each stage below is tagged Built, Partial, Simulated or Planned.
           </p>
         </div>
 
@@ -101,7 +140,20 @@ export const AboutView: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono font-bold text-slate-900">
-                    STAGE 0{stage.stage}
+                    STAGE {stage.stage}
+                  </span>
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[9px] font-bold font-mono border ${
+                      stage.status === 'BUILT'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : stage.status === 'PARTIAL'
+                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                        : stage.status === 'SIMULATED'
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    {stage.status}
                   </span>
                   {idx < PIPELINE_STAGES.length - 1 && (
                     <span className="hidden xl:block text-slate-400 text-xs font-bold">
@@ -217,7 +269,7 @@ export const AboutView: React.FC = () => {
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs text-slate-600 flex items-center gap-2.5">
           <Info className="h-4 w-4 text-slate-800 shrink-0" />
           <span>
-            <strong>Operational Engineering Standards:</strong> HydroGuard architecture complies with WMO Guidelines on Multi-Hazard Early Warning Systems (MHEWS) and NDMA standard operating procedures for glacial and pluvial flash flood response.
+            <strong>Standards note:</strong> the design is informed by the WMO multi-hazard early warning framework and NDMA guidance. It has not been reviewed or certified by either body.
           </span>
         </div>
       </div>

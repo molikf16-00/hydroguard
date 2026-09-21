@@ -17,7 +17,8 @@ import {
   Activity,
   ShieldAlert
 } from 'lucide-react';
-import { fetchHistoricalEventArchive } from '../utils/openMeteo';
+import { fetchHistoricalEventArchive, fetchHistoricalDischarge, dischargeRatioForDate } from '../utils/openMeteo';
+import { MODEL_ASSUMPTIONS } from '../config/catchmentConfig';
 import { calculateTransparentRiskScore } from '../utils/riskScoring';
 import { RiskLevel } from '../types';
 
@@ -34,43 +35,42 @@ interface HistoricalEventPreset {
   peakEventLabel: string;
   type: 'rainfall' | 'cryospheric';
   summary: string;
-  scientificContext: string;
+  /** Neutral background only. Results are computed from data and shown separately. */
+  context: string;
 }
 
 const PRESETS: HistoricalEventPreset[] = [
   {
     id: 'kedarnath-2013',
-    name: 'Kedarnath Flash Flood (June 2013)',
-    dateRange: '14 June – 18 June 2013',
-    location: 'Mandakini Valley / Kedarnath Shrine (30.735° N, 79.067° E)',
+    name: 'Kedarnath flood (June 2013)',
+    dateRange: '14 June - 18 June 2013',
+    location: 'Mandakini Valley / Kedarnath (30.735° N, 79.067° E)',
     lat: 30.7346,
     lon: 79.0669,
     startDate: '2013-06-14',
     endDate: '2013-06-18',
-    peakEventIso: '2013-06-16T20:00',
-    peakEventLabel: '16 June 20:00 – Heavy Deluge & Moraine Breach',
+    peakEventIso: '2013-06-17T07:00',
+    peakEventLabel: 'Approx. Chorabari Lake outburst, 17 June morning (verify against NDMA/WIHG reports)',
     type: 'rainfall',
-    summary:
-      'Catastrophic rainfall-driven flash flood and debris flow. Multi-day monsoon surge overwhelmed moraine dams at Chorabari Lake.',
-    scientificContext:
-      'HydroGuard transparent risk scoring accurately spikes into HIGH and SEVERE tiers (score > 85) well before the lake burst due to sustained antecedent saturation and extreme 24h precipitation.',
+    summary: 'Extreme multi-day rainfall in the Mandakini catchment, followed by flooding and a moraine-lake outburst.',
+    context:
+      'A rainfall-driven event, so it is within the scope of this prototype. The result below is computed from ERA5 reanalysis data at roughly 25 km resolution, which can understate local cloudburst intensity.',
   },
   {
     id: 'chamoli-2021',
-    name: 'Chamoli Disaster (7 Feb 2021) — Out-of-Scope Cryospheric Example',
-    dateRange: '05 Feb – 09 Feb 2021',
+    name: 'Chamoli disaster (7 Feb 2021): out-of-scope example',
+    dateRange: '05 Feb - 09 Feb 2021',
     location: 'Rishi Ganga / Tapovan Gorge (30.488° N, 79.697° E)',
     lat: 30.4884,
     lon: 79.6972,
     startDate: '2021-02-05',
     endDate: '2021-02-09',
-    peakEventIso: '2021-02-07T10:20',
-    peakEventLabel: '7 Feb 10:21 IST – Ronti Glacier Rock-Ice Avalanche',
+    peakEventIso: '2021-02-07T10:21',
+    peakEventLabel: '7 Feb, about 10:21 IST: rock-and-ice avalanche near Ronti Peak',
     type: 'cryospheric',
-    summary:
-      'A massive wedge of glacier ice and rock detached from Ronti Peak (~5,600m), plummeting into the gorge. Near-zero precipitation occurred on this clear winter day.',
-    scientificContext:
-      'Honest System Limitation: Rainfall indicators stay nominal (Score: 8–14 / Low). Purely meteorological sensors CANNOT detect internal cryogenic glacier shear failures without satellite SAR / seismic interferometry. Demonstrating this proves scientific rigor to the jury.',
+    summary: 'A mass of rock and glacier ice detached and travelled down the gorge. It is widely attributed to a rock-ice avalanche, not heavy rainfall.',
+    context:
+      'Not a rainfall-driven event. It is included to show what a rainfall-based score can and cannot see. Detecting this kind of trigger would need satellite or seismic sensing, which is planned and not built.',
   },
 ];
 
@@ -93,6 +93,8 @@ export const EventReplayView: React.FC = () => {
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const [riverIncluded, setRiverIncluded] = useState<boolean>(false);
+
   // Fetch and compute timeline when preset changes
   useEffect(() => {
     let isCancelled = false;
@@ -100,43 +102,36 @@ export const EventReplayView: React.FC = () => {
       setLoading(true);
       setErrorMsg(null);
       try {
-        const raw = await fetchHistoricalEventArchive(
-          selectedPreset.lat,
-          selectedPreset.lon,
-          selectedPreset.startDate,
-          selectedPreset.endDate
-        );
+        const [raw, discharge] = await Promise.all([
+          fetchHistoricalEventArchive(selectedPreset.lat, selectedPreset.lon, selectedPreset.startDate, selectedPreset.endDate),
+          fetchHistoricalDischarge(selectedPreset.lat, selectedPreset.lon, selectedPreset.startDate, selectedPreset.endDate),
+        ]);
 
         if (isCancelled) return;
 
         const times = raw.times;
         const precip = raw.precipitation;
         const soil = raw.soilMoisture;
-
         const points: TimelinePoint[] = [];
+        let anyRatio = false;
 
         for (let i = 0; i < times.length; i++) {
           const tIso = times[i];
           const r1 = precip[i] || 0;
+          const r3 = precip.slice(Math.max(0, i - 2), i + 1).reduce((a, b) => a + (b || 0), 0);
+          const r24 = precip.slice(Math.max(0, i - 23), i + 1).reduce((a, b) => a + (b || 0), 0);
+          const r72 = precip.slice(Math.max(0, i - 71), i + 1).reduce((a, b) => a + (b || 0), 0);
 
-          // 3h sum
-          const start3h = Math.max(0, i - 2);
-          const r3 = precip.slice(start3h, i + 1).reduce((a, b) => a + (b || 0), 0);
+          const rawSm = soil[i];
+          const soilPct = Math.min(
+            100,
+            Math.max(0, Math.round(((typeof rawSm === 'number' ? rawSm : 0) / MODEL_ASSUMPTIONS.soilFieldCapacityM3M3) * 100))
+          );
 
-          // 24h sum
-          const start24h = Math.max(0, i - 23);
-          const r24 = precip.slice(start24h, i + 1).reduce((a, b) => a + (b || 0), 0);
-
-          // 72h sum
-          const start72h = Math.max(0, i - 71);
-          const r72 = precip.slice(start72h, i + 1).reduce((a, b) => a + (b || 0), 0);
-
-          // soil moisture
-          const rawSm = soil[i] || 0.20;
-          const soilPct = Math.min(100, Math.max(5, Math.round((rawSm / 0.42) * 100)));
-
-          // estimated discharge ratio
-          const dischargeRatio = 1.0 + Math.min(3.5, r24 / 45);
+          // Historical GloFAS discharge only; never estimated from rainfall. Times are IST, discharge dates are GMT.
+          const utcDate = new Date(`${tIso}:00+05:30`).toISOString().slice(0, 10);
+          const ratio = discharge ? dischargeRatioForDate(discharge, utcDate) : null;
+          if (ratio) anyRatio = true;
 
           const scoreObj = calculateTransparentRiskScore({
             rain1hMm: r1,
@@ -144,11 +139,9 @@ export const EventReplayView: React.FC = () => {
             rain24hMm: r24,
             rain72hAntecedentMm: r72,
             soilMoistureSaturationPct: soilPct,
-            riverDischargeRatio: dischargeRatio,
-            freshnessText: `Historical Reanalysis: ${tIso.replace('T', ' ')} IST`,
+            riverDischargeRatio: ratio ? ratio.ratio : null,
+            freshnessText: `Historical reanalysis: ${tIso.replace('T', ' ')} IST`,
           });
-
-          const isPeak = tIso.startsWith(selectedPreset.peakEventIso.slice(0, 13));
 
           points.push({
             timeIso: tIso,
@@ -159,19 +152,20 @@ export const EventReplayView: React.FC = () => {
             soilPct,
             riskScore: scoreObj.totalScore,
             riskLevel: scoreObj.riskLevel,
-            isPeak,
+            isPeak: tIso.startsWith(selectedPreset.peakEventIso.slice(0, 13)),
           });
         }
 
+        setRiverIncluded(anyRatio);
         setTimelineData(points);
-        // Find peak index
         const peakIdx = points.findIndex((p) => p.isPeak);
         setSelectedPointIndex(peakIdx !== -1 ? peakIdx : points.length - 1);
       } catch (err: any) {
         console.error('Replay fetch failed', err);
-        setErrorMsg('Failed to fetch historical ERA5 archive. Please check internet connection.');
+        setTimelineData([]);
+        setErrorMsg('Could not fetch the historical ERA5 archive. Check your connection and try again.');
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     }
 
@@ -180,6 +174,28 @@ export const EventReplayView: React.FC = () => {
       isCancelled = true;
     };
   }, [selectedPreset]);
+
+  // Computed result: everything below comes from the timeline, nothing is pre-written.
+  const replaySummary = React.useMemo(() => {
+    if (timelineData.length === 0) return null;
+    const toMs = (t: string) => new Date(`${t}:00+05:30`).getTime();
+    const eventMs = toMs(selectedPreset.peakEventIso);
+    const peak = timelineData.reduce((best, p) => (p.riskScore > best.riskScore ? p : best), timelineData[0]);
+    const crossing = (label: string, threshold: number) => {
+      const pt = timelineData.find((p) => p.riskScore >= threshold);
+      if (!pt) return { label, threshold, time: null as string | null, hours: null as number | null };
+      return {
+        label,
+        threshold,
+        time: pt.displayTime,
+        hours: Math.round((eventMs - toMs(pt.timeIso)) / 3600000),
+      };
+    };
+    return {
+      peak,
+      crossings: [crossing('MEDIUM', 30), crossing('HIGH', 60), crossing('SEVERE', 80)],
+    };
+  }, [timelineData, selectedPreset]);
 
   const activePoint =
     selectedPointIndex !== null && timelineData[selectedPointIndex]
@@ -202,7 +218,7 @@ export const EventReplayView: React.FC = () => {
             <div className="flex items-center gap-2">
               <History className="h-5 w-5 text-slate-800" />
               <h2 className="text-xl font-bold tracking-tight text-slate-900 uppercase sm:text-2xl">
-                Historical Disaster Replay & Model Validation
+                Historical Event Replay
               </h2>
             </div>
             <p className="mt-1 text-xs text-slate-500">
@@ -261,7 +277,7 @@ export const EventReplayView: React.FC = () => {
         <div className="flex items-start justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
-              VALIDATION CASE STUDY
+              REPLAY CASE
             </span>
             <h3 className="text-base font-extrabold text-slate-900 mt-0.5">{selectedPreset.name}</h3>
             <span className="text-xs text-slate-500 block mt-0.5">Location: {selectedPreset.location}</span>
@@ -269,13 +285,45 @@ export const EventReplayView: React.FC = () => {
 
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-mono font-bold text-amber-900">
             <Clock className="h-3.5 w-3.5 text-amber-700" />
-            <span>Peak: {selectedPreset.peakEventLabel}</span>
+            <span>Marked event: {selectedPreset.peakEventLabel}</span>
           </span>
         </div>
 
         <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-700 border border-slate-200 leading-relaxed">
-          <strong className="text-slate-900">Scientific Evaluation: </strong>
-          {selectedPreset.scientificContext}
+          <strong className="text-slate-900">Context: </strong>
+          {selectedPreset.context}
+        </div>
+
+        <div className="rounded-xl bg-white p-3 text-xs text-slate-700 border border-slate-300 leading-relaxed space-y-1.5">
+          <strong className="text-slate-900">Computed result (from ERA5 data, not pre-written)</strong>
+          {loading && <p className="text-slate-500">Computing...</p>}
+          {!loading && !replaySummary && <p className="text-slate-500">No result: the archive could not be loaded.</p>}
+          {!loading && replaySummary && (
+            <>
+              <p>
+                Peak score in the window: <strong>{replaySummary.peak.riskScore}/100 ({replaySummary.peak.riskLevel})</strong> at{' '}
+                {replaySummary.peak.displayTime} IST.
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 font-mono text-[11px]">
+                {replaySummary.crossings.map((c) => (
+                  <li key={c.label}>
+                    First reached {c.label} ({c.threshold}+):{' '}
+                    {c.time === null || c.hours === null
+                      ? 'never in this window'
+                      : c.hours > 0
+                      ? `${c.time} IST, ${c.hours} h before the marked event time`
+                      : c.hours < 0
+                      ? `${c.time} IST, ${Math.abs(c.hours)} h after the marked event time`
+                      : `${c.time} IST, at the marked event time`}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-slate-500">
+                River factor: {riverIncluded ? 'included (historical GloFAS discharge)' : 'excluded (no historical discharge available; weights renormalized)'}.
+                One reanalysis-based replay with uncalibrated thresholds is an illustration, not a validation.
+              </p>
+            </>
+          )}
         </div>
       </div>
 

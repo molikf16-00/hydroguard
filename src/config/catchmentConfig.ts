@@ -22,7 +22,26 @@ export interface VillageConfigItem {
   coordinates: { xPercent: number; yPercent: number };
   safeRoute: string[];
   hazardFactors: string[];
+  /** ILLUSTRATIVE: not surveyed. Replace with field data before any real use. */
+  distanceFromRiverM?: number;
+  /** ILLUSTRATIVE: not surveyed. Replace with field data before any real use. */
+  shelterCapacity?: number;
 }
+
+/**
+ * MODEL ASSUMPTIONS (uncalibrated). Every value here is an assumption, not a measurement.
+ * They are shown in the UI as "Assumption" and must be calibrated with USDMA / CWC / IMD data.
+ */
+export const MODEL_ASSUMPTIONS = {
+  /** Assumption: volumetric water content treated as 100% "field capacity" for the soil-saturation factor (m3/m3). */
+  soilFieldCapacityM3M3: 0.42,
+  /** Assumption: flood-wave speed range used for travel-time estimates (m/s). Not calibrated for any real event. */
+  waveSpeedRangeMs: [2.0, 5.0] as [number, number],
+  /** Assumption: uphill walking pace used for evacuation-time estimates (minutes per km). */
+  walkingMinPerKm: 18,
+  /** Hours of history shown on the live trend chart. */
+  trendHours: 24,
+};
 
 export interface CatchmentSettings {
   id: string;
@@ -52,7 +71,7 @@ export const DEFAULT_CATCHMENT_CONFIG: CatchmentSettings = {
     elevationM: 3700,
     description: 'Narrow gorge headwaters prone to glacial lake breach, rock-ice avalanches, and intense orographic cloudbursts.',
   },
-  assumedWaveSpeedRangeMs: [2.0, 5.0], // 2 m/s to 5 m/s typical for high-gradient Himalayan torrents
+  assumedWaveSpeedRangeMs: MODEL_ASSUMPTIONS.waveSpeedRangeMs, // ASSUMPTION (uncalibrated)
   villages: [
     {
       id: 'v-raini',
@@ -73,6 +92,8 @@ export const DEFAULT_CATCHMENT_CONFIG: CatchmentSettings = {
         'Muster at Community Hall — High Ground Safe Refuge (2,120m)',
       ],
       hazardFactors: ['Low riverbed elevation', 'Narrow bottleneck canyon', 'Steep debris fan'],
+      distanceFromRiverM: 120, // ILLUSTRATIVE (not surveyed)
+      shelterCapacity: 500, // ILLUSTRATIVE (not surveyed)
     },
     {
       id: 'v-tapovan',
@@ -92,6 +113,8 @@ export const DEFAULT_CATCHMENT_CONFIG: CatchmentSettings = {
         'Gather at High School Emergency Refuge compound',
       ],
       hazardFactors: ['Sub-catchment confluence', 'Hydropower barrage proximity'],
+      distanceFromRiverM: 150, // ILLUSTRATIVE (not surveyed)
+      shelterCapacity: 400, // ILLUSTRATIVE (not surveyed)
     },
     {
       id: 'v-joshimath',
@@ -110,6 +133,8 @@ export const DEFAULT_CATCHMENT_CONFIG: CatchmentSettings = {
         'Keep clear of natural drainage ravines (nalas)',
       ],
       hazardFactors: ['High elevation terrace but vulnerable to slope seepage and subsidence'],
+      distanceFromRiverM: 400, // ILLUSTRATIVE (not surveyed)
+      shelterCapacity: 1200, // ILLUSTRATIVE (not surveyed)
     },
     {
       id: 'v-helang',
@@ -128,6 +153,8 @@ export const DEFAULT_CATCHMENT_CONFIG: CatchmentSettings = {
         'Maintain clear line of sight from slope drainage gully',
       ],
       hazardFactors: ['Debris flow feeder stream', 'Highway embankment erosion'],
+      distanceFromRiverM: 200, // ILLUSTRATIVE (not surveyed)
+      shelterCapacity: 600, // ILLUSTRATIVE (not surveyed)
     },
     {
       id: 'v-pipalkoti',
@@ -146,14 +173,17 @@ export const DEFAULT_CATCHMENT_CONFIG: CatchmentSettings = {
         'Assemble at Central Relief Storage Hub terrace',
       ],
       hazardFactors: ['Downstream buffer plateau with wider channel capacity'],
+      distanceFromRiverM: 250, // ILLUSTRATIVE (not surveyed)
+      shelterCapacity: 800, // ILLUSTRATIVE (not surveyed)
     },
   ],
 };
 
 /**
- * TASK 4: KINEMATIC LEAD TIME CALCULATION
- * Computes estimated flood-wave arrival lead time per village as:
- * Lead Time = Distance from upstream trigger point / wave speed (2–5 m/s)
+ * ESTIMATED WAVE TRAVEL TIME (not a forecast lead time)
+ * Travel time from the upstream trigger point to a village =
+ *   distance / assumed wave speed (2-5 m/s, uncalibrated).
+ * It says how long a wave would take to arrive AFTER a trigger, not how early rainfall data warns you.
  */
 export function computeLeadTimeRange(
   distanceKm: number,
@@ -198,19 +228,3 @@ export function computeLeadTimeRange(
 }
 
 export type CatchmentConfig = CatchmentSettings;
-
-export function calculateKinematicLeadTime(
-  distanceKm: number,
-  averageWaveSpeedMs: number = 3.5
-): {
-  conservativeMinutes: number;
-  fastMinutes: number;
-  display: string;
-} {
-  const range = computeLeadTimeRange(distanceKm, [2.0, 5.0]);
-  return {
-    conservativeMinutes: range.minMinutes,
-    fastMinutes: range.maxMinutes,
-    display: range.displayRange,
-  };
-}

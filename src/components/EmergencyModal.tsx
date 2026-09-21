@@ -97,7 +97,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-500 block">
-                Estimated Lead Time
+                Est. wave travel time
               </span>
               <span className="font-bold text-red-700 font-mono text-sm">
                 {leadTime}

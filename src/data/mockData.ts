@@ -8,6 +8,18 @@ import {
   AlertHistoryItem,
   ChannelStatus
 } from '../types';
+import type { RiskCalculationInputs } from '../utils/riskScoring';
+
+/**
+ * DEMO SIMULATOR INPUTS (synthetic).
+ * These are made-up numbers chosen to walk through Normal -> Rising -> Severe.
+ * They are fed through the same scoring engine as Live mode so the demo score is computed, not typed in.
+ */
+export const DEMO_SCORE_INPUTS: Record<SimulationScenario, RiskCalculationInputs> = {
+  NORMAL: { rain1hMm: 0.8, rain3hMm: 2.1, rain24hMm: 14, rain72hAntecedentMm: 26, soilMoistureSaturationPct: 34, riverDischargeRatio: 1.05 },
+  RISING: { rain1hMm: 12, rain3hMm: 30, rain24hMm: 76, rain72hAntecedentMm: 130, soilMoistureSaturationPct: 68, riverDischargeRatio: 1.9 },
+  SEVERE: { rain1hMm: 38, rain3hMm: 82, rain24hMm: 124, rain72hAntecedentMm: 210, soilMoistureSaturationPct: 87, riverDischargeRatio: 2.6 },
+};
 
 export const CATCHMENTS: CatchmentOption[] = [
   {
@@ -635,9 +647,9 @@ export const ALERT_CHANNELS: ChannelStatus[] = [
     name: 'Mobile App',
     icon: '📱',
     technology: 'Civic Push & Geofenced Alerts',
-    status: 'OPERATIONAL',
-    coverage: '94% smartphone reach in populated pockets',
-    latency: '< 3.2 seconds',
+    status: 'PLANNED',
+    coverage: 'To be measured in a pilot',
+    latency: 'Not measured',
     notes: 'Direct broadcast via local cell towers with offline cache capability.',
   },
   {
@@ -645,9 +657,9 @@ export const ALERT_CHANNELS: ChannelStatus[] = [
     name: 'SMS Gateway',
     icon: '📩',
     technology: 'National Cell Broadcast / GSM-C',
-    status: 'READY',
-    coverage: '99% cellular subscriber coverage',
-    latency: '< 8.5 seconds',
+    status: 'PLANNED',
+    coverage: 'To be measured in a pilot',
+    latency: 'Not measured',
     notes: 'Fallback for 2G/basic feature phones without mobile internet.',
   },
   {
@@ -655,9 +667,9 @@ export const ALERT_CHANNELS: ChannelStatus[] = [
     name: 'Siren Gateway',
     icon: '📢',
     technology: '130dB High-Output Solar Acoustic Horns',
-    status: 'STANDBY',
-    coverage: 'Audible across 4.2 km valley radius',
-    latency: 'Instantaneous (< 1.5s)',
+    status: 'PLANNED',
+    coverage: 'To be measured in a pilot',
+    latency: 'Not measured',
     notes: 'Autonomous triggering when risk reaches SEVERE classification.',
   },
   {
@@ -665,55 +677,75 @@ export const ALERT_CHANNELS: ChannelStatus[] = [
     name: 'LoRaWAN Mesh',
     icon: '📡',
     technology: '868MHz Resilient Sub-GHz Mesh',
-    status: 'MESH_ACTIVE',
-    coverage: '100% valley relay (No telecom dependency)',
-    latency: '< 2.0 seconds',
+    status: 'PLANNED',
+    coverage: 'To be measured in a pilot',
+    latency: 'Not measured',
     notes: 'Functions even during severe storms when cellular towers and power fail.',
   },
 ];
 
-export const PIPELINE_STAGES = [
+export type StageStatus = 'BUILT' | 'PARTIAL' | 'SIMULATED' | 'PLANNED';
+
+export const PIPELINE_STAGES: Array<{
+  stage: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  specs: string[];
+  status: StageStatus;
+}> = [
   {
     stage: '01',
     title: 'Data Sources',
-    subtitle: 'Ground & Remote Sensing',
-    description: 'Radar water level gauges, tipping bucket rain sensors, TDR soil probes, and Sentinel-1/DEM topographic imagery.',
-    specs: ['4 Sensor Modalities', '15-minute Telemetry Pings', 'Sub-GHz LoRa Mesh'],
+    subtitle: 'Model data now, field sensors planned',
+    description:
+      'Built: modelled rainfall, topsoil moisture and GloFAS river discharge from Open-Meteo, fetched per village. Planned: field rain gauges, river radar, soil probes and Sentinel-1 imagery.',
+    specs: ['Built: Open-Meteo forecast + flood API', 'Planned: field sensors', 'Planned: Sentinel-1 SAR + DEM'],
+    status: 'PARTIAL',
   },
   {
     stage: '02',
-    title: 'Data Fusion & Preprocessing',
-    subtitle: 'Catchment Telemetry Normalization',
-    description: 'Outlier rejection, kalman filtering, and GIS hydrological catchment delineation (flow accumulation & slope routing).',
-    specs: ['Spatiotemporal Interpolation', 'Hydrological Basin Routing', 'Signal Quality Check'],
+    title: 'Data Processing',
+    subtitle: 'Rolling windows and baselines',
+    description:
+      'Built: 1 h / 3 h / 24 h / 72 h rainfall windows and a median-based discharge baseline, computed per village. Planned: quality control and catchment routing.',
+    specs: ['Built: rolling windows', 'Built: 7-day discharge baseline', 'Planned: quality control + routing'],
+    status: 'PARTIAL',
   },
   {
     stage: '03',
-    title: 'ML Prediction Engine',
-    subtitle: 'Time-Series & Terrain AI',
-    description: 'Bidirectional LSTM for discharge hydrographs paired with Gradient Boosted trees for flash-flood triggering probabilities.',
-    specs: ['Bi-LSTM Time Series', 'XGBoost Risk Matrix', 'Himalayan Mountain Physics'],
+    title: 'Rule-Based Scoring',
+    subtitle: 'Explainable, uncalibrated',
+    description:
+      'Built: weighted rules over rainfall, antecedent rainfall, soil moisture and river discharge, with a per-factor explanation. Planned: calibration against USDMA / CWC / IMD records, then evaluation of ML models.',
+    specs: ['Built: weighted rules', 'Planned: calibration with gauge records', 'Planned: ML evaluation'],
+    status: 'BUILT',
   },
   {
     stage: '04',
     title: 'Risk Classification',
-    subtitle: 'Dynamic Multi-Factor Scoring',
-    description: 'Computes composite 0–100 index mapping into 4 standardized civil defense severity tiers.',
+    subtitle: 'Four civil-defense tiers',
+    description: 'Maps the 0-100 score to four tiers. Cut-offs are design choices and have not been validated.',
     specs: ['Low (0-29)', 'Medium (30-59)', 'High (60-79)', 'Severe (80-100)'],
+    status: 'BUILT',
   },
   {
     stage: '05',
     title: 'Early Warning',
-    subtitle: 'Redundant Multi-Channel Dispatch',
-    description: 'Automated triggers to sirens, cellular networks, mobile push notifications, and local village Panchayat terminals.',
-    specs: ['< 5s Broadcast Latency', 'Multi-Lingual Prompts', 'Autonomous Siren Relays'],
+    subtitle: 'CAP export built, dispatch simulated',
+    description:
+      'Built: CAP 1.2 alert generation, marked as an exercise. Simulated: channel test pings. Planned: real SMS, cell broadcast, siren and LoRa integration with the authorities.',
+    specs: ['Built: CAP 1.2 exercise export', 'Simulated: channel pings', 'Planned: real SMS / siren / LoRa'],
+    status: 'PARTIAL',
   },
   {
     stage: '06',
     title: 'Community Action',
-    subtitle: 'Life-Saving Evacuation Protocol',
-    description: 'Gram Panchayat alerts, pre-mapped safe high-ground escape paths, muster shelter mobilization, and response tracking.',
-    specs: ['Designated High Ground', 'Shelter Readiness Verification', 'Volunteer Taskforce Dispatch'],
+    subtitle: 'Illustrative routes and shelters',
+    description:
+      'Evacuation routes, shelters and SOP checklists are illustrative and were not surveyed. They must be replaced with data agreed with the district administration.',
+    specs: ['Illustrative routes and shelters', 'Editable in the config', 'Needs field survey'],
+    status: 'SIMULATED',
   },
 ];
 
@@ -765,35 +797,23 @@ export const TECH_STACK = [
   },
 ];
 
+/**
+ * Historical events for context only. No rainfall totals, river levels, lead times or scores are
+ * asserted here: any numbers come from the Event Replay tab, which computes them from ERA5 data.
+ */
 export const HISTORICAL_COMPARISONS = [
   {
-    event: 'Chamoli Flash Flood (Feb 2021)',
-    location: 'Rishi Ganga / Dhauliganga',
-    type: 'Glacial Rock Avalanche & Debris Surge',
-    rainfallMm: 'Low (Dry weather triggering event)',
-    peakRiverLevelM: '8.4 m (Catastrophic)',
-    leadTimeDelivered: '< 15 mins (Traditional manual observing)',
-    hydroGuardProjectedLead: '52 mins (Early acoustic & seismic-radar fusion)',
-    riskScore: 98,
+    event: 'Kedarnath flood (June 2013)',
+    location: 'Mandakini catchment, Uttarakhand',
+    trigger: 'Extreme multi-day rainfall followed by flooding and a moraine-lake outburst',
+    inScope: 'Yes: rainfall-driven',
+    status: 'Replayed on the Event Replay tab. Peak score and the time it crossed each tier are computed there from ERA5 data.',
   },
   {
-    event: 'Kedarnath Cloudburst (June 2013)',
-    location: 'Mandakini Catchment',
-    type: 'Extreme Convective Rainburst & Moraine Breach',
-    rainfallMm: '325 mm / 24h',
-    peakRiverLevelM: '9.2 m (Catastrophic)',
-    leadTimeDelivered: 'Zero formal early warning',
-    hydroGuardProjectedLead: '3h 40m (Soil saturation & convective warning)',
-    riskScore: 99,
-  },
-  {
-    event: 'Uttarkashi Monsoon Surge (Aug 2022)',
-    location: 'Bhagirathi Tributary',
-    type: 'Severe Monsoon Runoff Torrent',
-    rainfallMm: '142 mm / 6h',
-    peakRiverLevelM: '5.9 m (Severe)',
-    leadTimeDelivered: '45 mins',
-    hydroGuardProjectedLead: '2h 30m (Multi-source early warning)',
-    riskScore: 91,
+    event: 'Chamoli disaster (7 Feb 2021)',
+    location: 'Rishi Ganga / Dhauliganga, Uttarakhand',
+    trigger: 'Rock-and-ice avalanche in dry winter weather',
+    inScope: 'No: not rainfall-driven',
+    status: 'Shown on the Event Replay tab as a limitation. Rainfall-based scoring is not expected to detect it; cryospheric triggers need satellite or seismic sensing (planned).',
   },
 ];

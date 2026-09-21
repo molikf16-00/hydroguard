@@ -94,7 +94,7 @@ export const EmergencyAlertPanel: React.FC<EmergencyAlertPanelProps> = ({
                 <th className="py-2.5 px-3">Level</th>
                 <th className="py-2.5 px-3">Advisory Title & Catchment Area</th>
                 <th className="py-2.5 px-3">Dispatched Channels</th>
-                <th className="py-2.5 px-3">Lead Time</th>
+                <th className="py-2.5 px-3">Est. Travel Time</th>
                 <th className="py-2.5 px-3 rounded-r-md">Status</th>
               </tr>
             </thead>

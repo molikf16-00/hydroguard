@@ -16,13 +16,15 @@ import {
   Code,
   Scale
 } from 'lucide-react';
-import { RiskLevel, TransparentRiskScore, MetricInspectionData } from '../types';
+import { RiskLevel, TransparentRiskScore, MetricInspectionData, VillageData } from '../types';
 import { AnimatedNumber } from './AnimatedNumber';
 
 interface MainRiskCardProps {
   overallRisk: RiskLevel;
   riskScore: number;
-  confidence: number;
+  /** Deprecated: the old "model confidence" figure. Signal agreement is used instead. */
+  confidence?: number;
+  villages?: VillageData[];
   leadTime: string;
   lastUpdated: string;
   headline: string;
@@ -38,7 +40,8 @@ interface MainRiskCardProps {
 export const MainRiskCard: React.FC<MainRiskCardProps> = ({
   overallRisk,
   riskScore,
-  confidence,
+  confidence = 0,
+  villages = [],
   leadTime,
   lastUpdated,
   headline,
@@ -50,6 +53,27 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
   onOpenCapAlert,
   onInspectMetric,
 }) => {
+  // Data-driven tiles: everything below is computed from the villages actually passed in.
+  const flaggedVillages = villages.filter((v) => v.riskLevel === 'HIGH' || v.riskLevel === 'SEVERE');
+  const sectorValue =
+    flaggedVillages.length > 0
+      ? `${flaggedVillages.length} of ${villages.length} villages`
+      : 'No village at High/Severe';
+  const sectorNames = flaggedVillages.length > 0 ? flaggedVillages.map((v) => v.name).join(', ') : 'All villages below watch level';
+  const exposedPopulation = flaggedVillages.reduce((sum, v) => sum + v.population, 0);
+  const weightLabels: Record<string, string> = {
+    'rainfall-intensity': 'Rain',
+    'antecedent-rainfall': 'Ant.',
+    'soil-moisture': 'Soil',
+    'river-discharge': 'River',
+  };
+  const weightsText = transparentScore
+    ? transparentScore.factors
+        .filter((f) => !f.unavailable)
+        .map((f) => `${f.weightPercent}% ${weightLabels[f.id] ?? f.name}`)
+        .join(' + ')
+    : '';
+
   const getTheme = () => {
     switch (overallRisk) {
       case 'SEVERE':
@@ -62,7 +86,7 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
           buttonClass: 'bg-red-600 hover:bg-red-700 text-white shadow-md',
           pulseColor: 'bg-red-500',
           icon: <Flame className="h-6 w-6 text-white" />,
-          code: 'EMERGENCY WARNING #04',
+          code: 'SEVERE TIER',
         };
       case 'HIGH':
         return {
@@ -74,7 +98,7 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
           buttonClass: 'bg-orange-600 hover:bg-orange-700 text-white shadow-md',
           pulseColor: 'bg-orange-500',
           icon: <AlertTriangle className="h-6 w-6 text-white" />,
-          code: 'HYDROLOGICAL WATCH #02',
+          code: 'HIGH TIER',
         };
       case 'MEDIUM':
         return {
@@ -86,7 +110,7 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
           buttonClass: 'bg-amber-600 hover:bg-amber-700 text-white shadow-md',
           pulseColor: 'bg-amber-500',
           icon: <AlertTriangle className="h-6 w-6 text-white" />,
-          code: 'WEATHER ADVISORY #01',
+          code: 'MEDIUM TIER',
         };
       default:
         return {
@@ -98,7 +122,7 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
           buttonClass: 'bg-slate-900 hover:bg-slate-800 text-white shadow-md',
           pulseColor: 'bg-emerald-500',
           icon: <CheckCircle2 className="h-6 w-6 text-emerald-400" />,
-          code: 'SYSTEM NORMAL / NOMINAL',
+          code: 'LOW TIER: NOMINAL',
         };
     }
   };
@@ -162,23 +186,23 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
           <div
             onClick={() =>
               onInspectMetric?.({
-                title: 'Estimated Flood-Wave Lead Time',
+                title: 'Estimated wave travel time',
                 value: leadTime,
-                unit: 'horizon range',
-                status: overallRisk === 'SEVERE' ? 'Critical Arrival Window' : 'Operational Window',
+                unit: 'range',
+                status: 'Assumption-based estimate',
                 statusLevel: overallRisk,
-                source: 'Kinematic Flood Wave Velocity Model',
+                source: 'Distance ÷ assumed wave speed (uncalibrated)',
                 timestamp: lastUpdated,
                 methodNote:
-                  'Estimated using the dynamic hydraulic formula: Lead Time = Distance from Upstream Trigger Point ÷ Wave Velocity [2.0 – 5.0 m/s].',
-                threshold: 'Distance / Velocity range [2 - 5 m/s]',
+                  'Travel time = distance from the upstream trigger point ÷ an assumed wave speed of 2-5 m/s. It estimates how long a wave would take to arrive after a trigger. It is not a forecast of how early rainfall data gives a warning.',
+                threshold: 'Assumed wave speed 2-5 m/s (not calibrated)',
               })
             }
             className="text-left sm:text-right bg-black/20 px-3 py-1.5 rounded-xl border border-white/10 backdrop-blur-xs cursor-pointer hover:bg-black/30 transition"
             title="Click to view kinematic calculation details"
           >
             <span className="text-[10px] font-bold uppercase tracking-wider block opacity-80 font-mono">
-              ESTIMATED LEAD TIME
+              EST. WAVE TRAVEL TIME
             </span>
             <span className="text-base sm:text-xl font-black font-mono tracking-tight tabular-nums flex items-center gap-1.5 sm:justify-end">
               <Clock className="h-4 w-4 opacity-75" />
@@ -228,15 +252,15 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
               <div
                 onClick={() =>
                   onInspectMetric?.({
-                    title: 'Catchment Sector Classification',
-                    value: 'Cluster A (Gorge)',
-                    unit: 'zone',
-                    status: 'Active River Front',
+                    title: 'Villages at High or Severe',
+                    value: sectorValue,
+                    unit: 'villages',
+                    status: sectorNames,
                     statusLevel: overallRisk,
-                    source: 'Rishi Ganga Catchment GIS Topology',
+                    source: 'HydroGuard per-village scores',
                     timestamp: lastUpdated,
-                    methodNote: 'Upper narrow canyon corridor encompassing Raini and Tapovan villages.',
-                    threshold: 'Corridor boundary < 15km from headwaters',
+                    methodNote: 'Counts villages whose own score is in the High (60-79) or Severe (80-100) tier.',
+                    threshold: 'High: 60-79 | Severe: 80-100',
                   })
                 }
                 className="rounded-xl bg-slate-50/90 p-3 border border-slate-200/80 hover:border-slate-300 transition-colors cursor-pointer"
@@ -246,54 +270,54 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
                   <span>Sector</span>
                 </div>
                 <span className="font-bold text-slate-900 text-sm mt-1 block truncate">
-                  Cluster A (Gorge)
+                  {sectorValue}
                 </span>
                 <span className="text-[11px] text-slate-500 mt-0.5 block truncate">
-                  Raini & Tapovan
+                  {sectorNames}
                 </span>
               </div>
 
               <div
                 onClick={() =>
                   onInspectMetric?.({
-                    title: 'Kinematic Wave Arrival Horizon',
+                    title: 'Wave travel time estimate',
                     value: leadTime,
                     unit: 'range',
-                    status: overallRisk === 'SEVERE' ? 'Immediate Surge' : 'Calculated Horizon',
+                    status: 'Assumption-based estimate',
                     statusLevel: overallRisk,
-                    source: 'Wave Velocity Equation [2–5 m/s]',
+                    source: 'Distance ÷ assumed wave speed (uncalibrated)',
                     timestamp: lastUpdated,
                     methodNote:
-                      'Calculated as Distance from Trigger Point ÷ Wave Speed. Verified against historical 2021 surge travel logs.',
-                    threshold: 'Velocity range 2.0 to 5.0 m/s',
+                      'Calculated as distance from the trigger point ÷ an assumed wave speed. The speed range has not been calibrated against any recorded event.',
+                    threshold: 'Assumed wave speed 2.0 to 5.0 m/s',
                   })
                 }
                 className="rounded-xl bg-slate-50/90 p-3 border border-slate-200/80 hover:border-slate-300 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   <Timer className="h-3 w-3 text-slate-400" />
-                  <span>Lead Horizon</span>
+                  <span>Wave Travel Time</span>
                 </div>
                 <span className="font-bold text-slate-900 text-sm mt-1 block font-mono tabular-nums">
                   {leadTime}
                 </span>
                 <span className="text-[11px] text-slate-500 mt-0.5 block truncate">
-                  Estimated range
+                  Estimate, uncalibrated
                 </span>
               </div>
 
               <div
                 onClick={() =>
                   onInspectMetric?.({
-                    title: 'Exposed Riparian Population',
-                    value: '1,960',
+                    title: 'Population in flagged villages',
+                    value: exposedPopulation.toLocaleString('en-IN'),
                     unit: 'residents',
-                    status: 'Vulnerable in floodplain',
+                    status: 'Placeholder figures',
                     statusLevel: overallRisk,
-                    source: 'Census 2021 & District Disaster Management Authority (DDMA)',
-                    timestamp: 'Active Database',
-                    methodNote: 'Aggregated resident population residing within the 100-meter river inundation buffer.',
-                    threshold: 'Riparian elevation < +15m above stream bed',
+                    source: 'Editable catchment config (placeholder values, not census data)',
+                    timestamp: 'Config',
+                    methodNote: 'Sum of the population figures configured for villages at High or Severe. These figures were entered by the team and are not from the census or the district authority.',
+                    threshold: 'n/a',
                   })
                 }
                 className="rounded-xl bg-slate-50/90 p-3 border border-slate-200/80 hover:border-slate-300 transition-colors cursor-pointer"
@@ -303,10 +327,10 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
                   <span>Exposed Population</span>
                 </div>
                 <span className="font-bold text-slate-900 text-sm mt-1 block font-mono tabular-nums">
-                  1,960 Residents
+                  {exposedPopulation.toLocaleString('en-IN')} residents
                 </span>
                 <span className="text-[11px] text-slate-500 mt-0.5 block truncate">
-                  Low-lying floodplain
+                  In flagged villages (placeholder data)
                 </span>
               </div>
 
@@ -318,9 +342,9 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
                     unit: 'SOP protocol',
                     status: overallRisk,
                     statusLevel: overallRisk,
-                    source: 'Standard Operating Procedure (SOP) Uttarakhand SDMA',
+                    source: 'HydroGuard tier-to-action mapping (prototype, not an official SOP)',
                     timestamp: lastUpdated,
-                    methodNote: 'Mandatory action protocol triggered by current composite flood risk score tier.',
+                    methodNote: 'Suggested action for the current risk tier. It has not been reviewed by any disaster management authority.',
                     threshold: 'Tier: Low (0-29) | Medium (30-59) | High (60-79) | Severe (80-100)',
                   })
                 }
@@ -369,7 +393,7 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
                   </span>
                 </div>
                 <span className="text-[9px] text-slate-400 block mt-0.5 font-mono">
-                  {transparentScore?.signalAgreement.statusText || 'Independent Signals'}
+                  {transparentScore?.signalAgreement.statusText || 'Indicator agreement'}
                 </span>
               </div>
             </div>
@@ -389,7 +413,7 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
                 <div className={`rounded-r-full transition-colors duration-500 ${riskScore >= 80 ? 'bg-red-600' : 'bg-slate-200'}`} />
               </div>
               <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-0.5">
-                <span>Weights: 35% Rain + 20% Ant. + 25% Soil + 20% River</span>
+                <span>Weights: {weightsText}</span>
               </div>
             </div>
 
@@ -415,7 +439,7 @@ export const MainRiskCard: React.FC<MainRiskCardProps> = ({
 
             <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-200/70">
               <span className="truncate">Synced: {lastUpdated}</span>
-              <span className="shrink-0 font-bold">IMD_CALIBRATED_v2</span>
+              <span className="shrink-0 font-bold">RULE_BASED · UNCALIBRATED</span>
             </div>
           </div>
         </div>

@@ -102,7 +102,7 @@ export const CitizenActionGuide: React.FC<CitizenActionGuideProps> = ({
           bannerBg: 'bg-red-50 border-red-200 text-red-900',
           badgeBg: 'bg-red-600 text-white',
           statusTitle: 'IMMEDIATE LIFE SAFETY EVACUATION',
-          plainSummary: `A fast-moving flash flood wave is traveling down the valley. You have approximately ${leadTime} to reach designated safe high ground.`,
+          plainSummary: `Modelled indicators are at a severe level. If a flash flood wave starts upstream, it could reach the valley in about ${leadTime}. Follow instructions from local authorities and move to designated high ground.`,
           urgentDirective: 'DO NOT wait to see the water rise. Run to high ground now.',
           actionButton: 'FIND NEAREST HIGH-GROUND ESCAPE ROUTE',
           icon: <Flame className="h-5 w-5 text-red-600" />,
@@ -112,7 +112,7 @@ export const CitizenActionGuide: React.FC<CitizenActionGuideProps> = ({
           bannerBg: 'bg-orange-50 border-orange-200 text-orange-900',
           badgeBg: 'bg-orange-600 text-white',
           statusTitle: 'HIGH ALERT: PREPARE TO EVACUATE',
-          plainSummary: `River levels and upstream rainfall are rising rapidly. Impact could reach your cluster in ${leadTime}.`,
+          plainSummary: `Modelled rainfall and river indicators are elevated. If a wave starts upstream, it could reach your area in about ${leadTime}.`,
           urgentDirective: 'Pack essentials, gather family members, and stay tuned to sirens and mobile alerts.',
           actionButton: 'VIEW PREPAREDNESS ROUTE & SHELTER',
           icon: <AlertTriangle className="h-5 w-5 text-orange-600" />,
@@ -159,7 +159,7 @@ export const CitizenActionGuide: React.FC<CitizenActionGuideProps> = ({
 
           <div className="flex items-center gap-2 text-xs font-semibold">
             <Clock className="h-4 w-4 shrink-0 text-slate-700" />
-            <span>Time to Safety: <strong className="font-mono text-sm">{leadTime}</strong></span>
+            <span>Est. wave travel time: <strong className="font-mono text-sm">{leadTime}</strong></span>
           </div>
         </div>
 
@@ -312,7 +312,7 @@ export const CitizenActionGuide: React.FC<CitizenActionGuideProps> = ({
         >
           <div className="flex items-center gap-2">
             <HelpCircle className="h-4 w-4 text-slate-700" />
-            <span>Why 40+ Minutes of Early Warning Saves Thousands of Lives (How It Works Simply)</span>
+            <span>How early warning is meant to help (plain language)</span>
           </div>
           <span className="text-slate-400 text-xs">{showHowItWorks ? 'Hide' : 'Explain'}</span>
         </button>
@@ -326,16 +326,16 @@ export const CitizenActionGuide: React.FC<CitizenActionGuideProps> = ({
               className="pt-2 border-t border-slate-100 text-slate-600 space-y-2 leading-relaxed text-[12px] overflow-hidden"
             >
               <p>
-                In Himalayan valleys like <strong>Chamoli and Kedarnath</strong>, past disasters killed people not because mountains fell, but because <strong>nobody knew the water was coming until it hit their house</strong>.
+                In steep Himalayan valleys, flood water can arrive with very little notice. The goal of early warning is to give people enough time to reach high ground.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-[11px]">
                 <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-200">
-                  <strong className="text-slate-900 block">🌧️ Upstream Cloudburst Detection:</strong>
-                  Rainfall sensors at high peaks (3,500m) record torrential downpours 45–60 minutes before the runoff cascades into inhabited valleys below.
+                  <strong className="text-slate-900 block">🌧️ Watching the rain:</strong>
+                  This prototype reads weather-model rainfall and soil moisture for each village. Field rain gauges in the upper catchment are planned, not built.
                 </div>
                 <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-200">
-                  <strong className="text-slate-900 block">📡 Instant Cellular Broadcast:</strong>
-                  Instead of waiting for news broadcasts, alerts are blasted instantly to every mobile phone and community siren without relying on internet cables.
+                  <strong className="text-slate-900 block">📡 Reaching people:</strong>
+                  Warnings are meant to reach phones and sirens without relying on internet cables. In this prototype the channels are simulated and nothing is sent.
                 </div>
               </div>
             </motion.div>

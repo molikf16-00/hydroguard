@@ -70,11 +70,11 @@ export const RiskMap: React.FC<RiskMapProps> = ({
               Tactical Catchment GIS & Inundation Map
             </h3>
             <span className="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-              WGS84 / UTM 44N
+              Schematic, not to scale
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate">
-            Rishi Ganga – Alaknanda Confluence Hydrographic Reach • 12.5m DEM Resolution
+            Rishi Ganga – Alaknanda confluence reach • schematic layout, no elevation model
           </p>
         </div>
 
@@ -270,14 +270,14 @@ export const RiskMap: React.FC<RiskMapProps> = ({
               <g>
                 <circle cx="940" cy="140" r="7" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
                 <circle cx="940" cy="140" r="14" fill="none" stroke="#38bdf8" strokeWidth="1.5" className="animate-radar-ring" />
-                <text x="810" y="130" fill="#38bdf8" className="text-[9px] font-mono font-bold">RADAR-01 (Headwaters)</text>
+                <text x="810" y="130" fill="#38bdf8" className="text-[9px] font-mono font-bold">Planned sensor site 1 (headwaters)</text>
 
                 <circle cx="470" cy="300" r="7" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
                 <circle cx="470" cy="300" r="14" fill="none" stroke="#38bdf8" strokeWidth="1.5" className="animate-radar-ring" />
-                <text x="490" y="325" fill="#38bdf8" className="text-[9px] font-mono font-bold">RADAR-02 (Tapovan Gage)</text>
+                <text x="490" y="325" fill="#38bdf8" className="text-[9px] font-mono font-bold">Planned sensor site 2 (Tapovan)</text>
 
                 <circle cx="160" cy="590" r="7" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
-                <text x="180" y="585" fill="#38bdf8" className="text-[9px] font-mono font-bold">STAGE-03 (Joshimath Outfall)</text>
+                <text x="180" y="585" fill="#38bdf8" className="text-[9px] font-mono font-bold">Planned sensor site 3 (Joshimath)</text>
               </g>
             )}
 
@@ -285,12 +285,12 @@ export const RiskMap: React.FC<RiskMapProps> = ({
             {showShelters && (
               <g>
                 <rect x="750" y="75" width="20" height="20" rx="4" fill="#059669" stroke="#ffffff" strokeWidth="2" />
-                <text x="780" y="89" fill="#34d399" className="text-[10px] font-bold font-mono">SHELTER 01 (Ridge 2,100m MSL)</text>
-                <text x="780" y="103" fill="#94a3b8" className="text-[9px] font-mono">Capacity: 1,200 | Supplies: Ready</text>
+                <text x="780" y="89" fill="#34d399" className="text-[10px] font-bold font-mono">SHELTER 01 (illustrative)</text>
+                <text x="780" y="103" fill="#94a3b8" className="text-[9px] font-mono">Capacity and supplies: not surveyed</text>
 
                 <rect x="350" y="175" width="20" height="20" rx="4" fill="#059669" stroke="#ffffff" strokeWidth="2" />
-                <text x="380" y="189" fill="#34d399" className="text-[10px] font-bold font-mono">SHELTER 02 (Helang School 1,920m)</text>
-                <text x="380" y="203" fill="#94a3b8" className="text-[9px] font-mono">Capacity: 950 | Med Station: Active</text>
+                <text x="380" y="189" fill="#34d399" className="text-[10px] font-bold font-mono">SHELTER 02 (illustrative)</text>
+                <text x="380" y="203" fill="#94a3b8" className="text-[9px] font-mono">Capacity and supplies: not surveyed</text>
               </g>
             )}
 
@@ -432,7 +432,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
 
                 <div className="rounded-lg bg-white p-2.5 border border-slate-200 shadow-2xs">
                   <span className="text-[10px] text-slate-400 block uppercase font-medium">
-                    Impact Arrival Time
+                    Est. wave travel time
                   </span>
                   <span className="text-base font-extrabold text-red-600 font-mono flex items-center gap-1 mt-0.5">
                     <Clock className="h-3.5 w-3.5 text-red-500" />
