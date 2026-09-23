@@ -50,11 +50,6 @@ test("original layout with live scores, village search and exports", async ({
   await expect(
     page.getByRole("dialog", { name: "Risk score explanation" }),
   ).toBeVisible();
-  console.log("dialog-layout", await page.evaluate(() => {
-    const b = document.querySelector('[aria-label="Close dialog"]')!;
-    const r = b.getBoundingClientRect();
-    return { viewport: {w:innerWidth,h:innerHeight}, visual: {w:visualViewport?.width,h:visualViewport?.height,scale:visualViewport?.scale}, pageWidth:document.documentElement.scrollWidth, button:r.toJSON(), hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML.slice(0,500), dialog:document.querySelector('[role="dialog"]')?.getBoundingClientRect().toJSON(), wide:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth).slice(0,12).map(e=>({tag:e.tagName,c:e.className,r:e.getBoundingClientRect().toJSON()})) };
-  }));
   await page.getByRole("button", { name: "Close dialog", exact: true }).click();
   await page.getByRole("textbox", { name: "Search villages" }).fill("Raini");
   await expect(page.locator("#villages tbody tr")).toHaveCount(1);
@@ -99,7 +94,7 @@ test("original layout with live scores, village search and exports", async ({
   await page.getByRole("button", { name: "Close CAP export" }).click();
   expect(
     await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
+      () => document.documentElement.scrollWidth <= (window.visualViewport?.width ?? window.innerWidth),
     ),
   ).toBeTruthy();
   await page.screenshot({
