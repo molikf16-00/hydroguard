@@ -206,3 +206,17 @@ select:focus-visible {
   min-width: 2rem;
   min-height: 2rem;
 }
+[role="dialog"] > div:first-child > div {
+  flex: 1 1 0%;
+}
+[role="dialog"] > div:first-child > div > div:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+[role="dialog"] > div:first-child > div > div:first-child {
+  flex-shrink: 0;
+}
+[role="dialog"] > div:first-child > button {
+  position: relative;
+  z-index: 1;
+}
