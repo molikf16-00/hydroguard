@@ -189,3 +189,20 @@ select:focus-visible {
     transition: none !important;
   }
 }
+
+/* Keep the original dialogs usable on narrow and short viewports. */
+[role="dialog"] {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+[role="dialog"] > div:first-child {
+  gap: 0.75rem;
+}
+[role="dialog"] > div:first-child > div {
+  min-width: 0;
+}
+[role="dialog"] > div:first-child > button {
+  flex-shrink: 0;
+  min-width: 2rem;
+  min-height: 2rem;
+}
