@@ -1,790 +1,1060 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
-  ShieldAlert,
-  Radio,
-  MapPin,
-  Clock,
-  ArrowRight,
-  ArrowLeft,
-  TrendingUp,
-  Sliders,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
   Activity,
-  Maximize2,
-  Compass,
-  Layers,
-  BarChart3,
-  BookOpen,
+  ArrowDownToLine,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CircleHelp,
+  CloudRain,
+  Database,
+  Droplets,
+  ExternalLink,
+  FileText,
   History,
-  Scale,
-  Settings,
-  FileCode2,
-  Globe
-} from 'lucide-react';
-import { SimulationScenario, RiskLevel, VillageData, AppMode, MetricInspectionData, TransparentRiskScore } from './types';
-import { SCENARIO_METRICS, CATCHMENTS, DEMO_SCORE_INPUTS } from './data/mockData';
-import { DEFAULT_CATCHMENT_CONFIG, CatchmentConfig } from './config/catchmentConfig';
-import { calculateTransparentRiskScore } from './utils/riskScoring';
-import { fetchLiveCatchmentData, LiveCatchmentState } from './utils/openMeteo';
+  Layers,
+  LayoutDashboard,
+  Leaf,
+  MapPin,
+  Menu,
+  Radio,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Signal,
+  Waves,
+  WifiOff,
+  X,
+} from "lucide-react";
+import { useLiveCatchment } from "./hooks/useLiveCatchment";
+import { LiveMap, tierColors } from "./components/LiveMap";
+import { LiveTrend } from "./components/LiveTrend";
+import { DEFAULT_CATCHMENT_CONFIG } from "./config/catchmentConfig";
+import type { SourceMetric, TransparentRiskScore } from "./types";
+const EventReplay = lazy(() =>
+  import("./components/EventReplayView").then((m) => ({
+    default: m.EventReplayView,
+  })),
+);
+type Tab = "overview" | "villages" | "sources" | "replay" | "method";
+const NAV = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "villages", label: "Village monitor", icon: MapPin },
+  { id: "sources", label: "Data sources", icon: Database },
+  { id: "replay", label: "Historical replay", icon: History },
+  { id: "method", label: "Methodology", icon: Layers },
+] as const;
+const shortName = (name: string) => name.split(" (")[0];
+const formatTime = (iso?: string) =>
+  iso
+    ? new Date(iso).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      }) + " IST"
+    : "Awaiting data";
 
-import { Navbar } from './components/Navbar';
-import { DemoScenarioBar } from './components/DemoScenarioBar';
-import { MainRiskCard } from './components/MainRiskCard';
-import { CitizenActionGuide } from './components/CitizenActionGuide';
-import { MultiSourceCards } from './components/MultiSourceCards';
-import { RiskTrendChart } from './components/RiskTrendChart';
-import { RiskMap } from './components/RiskMap';
-import { EmergencyAlertPanel } from './components/EmergencyAlertPanel';
-import { EvacuationIntelligence } from './components/EvacuationIntelligence';
-import { AlertChannelsCard } from './components/AlertChannelsCard';
-import { AnalyticsView } from './components/AnalyticsView';
-import { AboutView } from './components/AboutView';
-import { EmergencyModal } from './components/EmergencyModal';
-import { EventReplayView } from './components/EventReplayView';
-import { MetricSourceModal } from './components/MetricSourceModal';
-import { WhyThisScoreModal } from './components/WhyThisScoreModal';
-import { CapAlertModal } from './components/CapAlertModal';
-import { CatchmentConfigModal } from './components/CatchmentConfigModal';
-import { Footer } from './components/Footer';
-
-type DashboardMetrics = (typeof SCENARIO_METRICS)['SEVERE'] & { transparentScore: TransparentRiskScore };
-
-export default function App() {
-  // Navigation & Operating Mode
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'map' | 'alerts' | 'analytics' | 'about' | 'replay'>('dashboard');
-  const [appMode, setAppMode] = useState<AppMode>('DEMO');
-  const [scenario, setScenario] = useState<SimulationScenario>('SEVERE');
-  const [selectedCatchmentId, setSelectedCatchmentId] = useState<string>('chamoli-rishi-ganga');
-  const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(false);
-
-  // Catchment Configuration (editable via UI)
-  const [catchmentConfig, setCatchmentConfig] = useState<CatchmentConfig>(DEFAULT_CATCHMENT_CONFIG);
-
-  // Modals state
-  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState<boolean>(false);
-  const [selectedVillageForModal, setSelectedVillageForModal] = useState<VillageData | null>(null);
-  const [inspectMetric, setInspectMetric] = useState<MetricInspectionData | null>(null);
-  const [isWhyScoreOpen, setIsWhyScoreOpen] = useState<boolean>(false);
-  const [capModalVillage, setCapModalVillage] = useState<VillageData | null>(null);
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
-
-  // Live Data State
-  const [liveDataStatus, setLiveDataStatus] = useState<'loading' | 'success' | 'cached' | 'error'>('loading');
-  const [isRefreshingLive, setIsRefreshingLive] = useState<boolean>(false);
-  const [liveTelemetry, setLiveTelemetry] = useState<LiveCatchmentState | null>(null);
-  const liveTelemetryRef = useRef<LiveCatchmentState | null>(null);
-  liveTelemetryRef.current = liveTelemetry;
-
-  // Fetch live data from Open-Meteo for every village in the config
-  const loadLiveData = useCallback(async () => {
-    setIsRefreshingLive(true);
-    if (!liveTelemetryRef.current) setLiveDataStatus('loading');
-    try {
-      const data = await fetchLiveCatchmentData(catchmentConfig);
-      setLiveTelemetry(data);
-      setLiveDataStatus(data.isCached ? 'cached' : 'success');
-    } catch (err) {
-      console.warn('Live data unavailable:', err);
-      setLiveTelemetry(null);
-      setLiveDataStatus('error');
-    } finally {
-      setIsRefreshingLive(false);
-    }
-  }, [catchmentConfig]);
-
-  // Load live data when Live mode is selected (or the catchment config changes)
-  useEffect(() => {
-    if (appMode === 'LIVE') {
-      loadLiveData();
-    }
-  }, [appMode, loadLiveData]);
-
-  // Refresh live data every 10 minutes while Live mode is active
-  useEffect(() => {
-    if (appMode !== 'LIVE') return;
-    const id = setInterval(() => {
-      loadLiveData();
-    }, 10 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [appMode, loadLiveData]);
-
-  // Auto-cycle scenarios for hands-free presentations in Demo mode
-  useEffect(() => {
-    if (!isAutoPlaying || appMode === 'LIVE') return;
-    const interval = setInterval(() => {
-      setScenario((prev) => {
-        if (prev === 'NORMAL') return 'RISING';
-        if (prev === 'RISING') return 'SEVERE';
-        return 'NORMAL';
-      });
-    }, 9000);
-    return () => clearInterval(interval);
-  }, [isAutoPlaying, appMode]);
-
-  const activeCatchment = CATCHMENTS.find((c) => c.id === selectedCatchmentId) || CATCHMENTS[0];
-  const demoMetrics = SCENARIO_METRICS[scenario];
-
-  // True when Live mode is selected but no real data could be loaded: never fall back to demo numbers.
-  const liveUnavailable = appMode === 'LIVE' && !liveTelemetry;
-
-  // Derive Active Telemetry & Transparent Score
-  const activeMetrics: DashboardMetrics = React.useMemo(() => {
-    if (appMode === 'LIVE' && liveTelemetry) {
-      const score = liveTelemetry.riskScore;
-      const driverVillage = liveTelemetry.villages.find((v) => v.name === liveTelemetry.drivingVillageName);
-      const flagged = liveTelemetry.villages.filter((v) => v.riskLevel === 'HIGH' || v.riskLevel === 'SEVERE');
-      const priority: Record<RiskLevel, string> = {
-        SEVERE: 'FOLLOW LOCAL AUTHORITY INSTRUCTIONS: MOVE TO HIGH GROUND',
-        HIGH: 'PREPARE EVACUATION ROUTE AND ESSENTIALS',
-        MEDIUM: 'STAY ALERT AND MONITOR THE ADVISORY CHANNEL',
-        LOW: 'NORMAL MONITORING',
-      };
-      return {
-        overallRisk: score.riskLevel,
-        riskScore: score.totalScore,
-        confidence: 0,
-        leadTime: driverVillage?.leadTimeRangeDisplay ? `${driverVillage.leadTimeRangeDisplay} (est.)` : 'n/a',
-        lastUpdated: liveTelemetry.lastUpdatedText,
-        headline: liveTelemetry.headline,
-        description: liveTelemetry.description,
-        affectedCluster: flagged.length > 0 ? flagged.map((v) => v.name).join(', ') : 'No village above watch level',
-        evacuationPriority: priority[score.riskLevel],
-        rainfall: liveTelemetry.metrics.rainfall,
-        riverLevel: liveTelemetry.metrics.riverLevel,
-        soilMoisture: liveTelemetry.metrics.soilMoisture,
-        terrainSatellite: liveTelemetry.metrics.terrainSatellite,
-        trendHistory: liveTelemetry.trendHistory,
-        villages: liveTelemetry.villages,
-        activeAlerts: liveTelemetry.alerts,
-        transparentScore: score,
-      };
-    }
-
-    // Demo Simulator: synthetic inputs run through the same scoring engine as Live mode
-    const transparentScore = calculateTransparentRiskScore({
-      ...DEMO_SCORE_INPUTS[scenario],
-      freshnessText: `Demo Simulator: ${scenario} scenario (synthetic inputs)`,
-    });
-
-    return {
-      ...demoMetrics,
-      riskScore: transparentScore.totalScore,
-      overallRisk: transparentScore.riskLevel,
-      // Keep the demo chart's latest point consistent with the computed score.
-      trendHistory: demoMetrics.trendHistory.map((pt, i, arr) =>
-        i === arr.length - 1 ? { ...pt, riskScore: transparentScore.totalScore } : pt
-      ),
-      transparentScore,
-    };
-  }, [appMode, liveTelemetry, demoMetrics, scenario]);
-
-  // AlertChannelsCard reports (title, value, source, method); MetricSourceModal wants a full record.
-  const inspectChannelMetric = (title: string, value: string, source: string, method: string) => {
-    setInspectMetric({
-      title,
-      value,
-      unit: '',
-      status: 'Simulated',
-      statusLevel: 'LOW',
-      source,
-      timestamp: 'n/a (prototype)',
-      methodNote: method,
-      threshold: 'Design target, not measured',
-    });
-  };
-
-  const showLiveGate = liveUnavailable && currentTab !== 'replay' && currentTab !== 'about';
-
-  const handleOpenEmergencyDetails = () => {
-    const rank: Record<RiskLevel, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, SEVERE: 3 };
-    const top = [...activeMetrics.villages].sort(
-      (a, b) => rank[b.riskLevel] - rank[a.riskLevel] || (b.riskScore ?? 0) - (a.riskScore ?? 0)
-    )[0];
-    setSelectedVillageForModal(top || null);
-    setIsEmergencyModalOpen(true);
-  };
-
-  const handleOpenVillageRoute = (village: VillageData) => {
-    setSelectedVillageForModal(village);
-    setIsEmergencyModalOpen(true);
-  };
-
-  const handleGenerateCap = (village: VillageData) => {
-    setCapModalVillage(village);
-  };
-
-  // Reusable Sub-View Breadcrumb & Navigation Bar
-  const renderSubViewHeader = (
-    title: string,
-    subtitle: string,
-    icon: React.ReactNode,
-    activeKey: 'map' | 'alerts' | 'analytics' | 'replay' | 'about'
-  ) => (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3 min-w-0">
-        <button
-          onClick={() => setCurrentTab('dashboard')}
-          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-900 hover:text-white transition shadow-2xs shrink-0 group cursor-pointer"
-          title="Return to Main Operations Dashboard"
-        >
-          <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
-          <span>Dashboard</span>
-        </button>
-
-        <div className="h-4 w-px bg-slate-200 shrink-0 hidden sm:block" />
-
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-900">
-            {icon}
-            <span className="truncate">{title}</span>
+function MetricCard({
+  metric,
+  label,
+  icon: Icon,
+}: {
+  metric?: SourceMetric;
+  label: string;
+  icon: typeof CloudRain;
+}) {
+  return (
+    <article className="metric-card">
+      <div className="metric-heading">
+        <span>{label}</span>
+        <Icon size={17} />
+      </div>
+      <div className="metric-value">
+        {!metric || metric.unavailable ? "—" : metric.value}
+        <small>
+          {metric && !metric.unavailable ? metric.unit : "Awaiting source"}
+        </small>
+      </div>
+      <div className="metric-bottom">
+        <span
+          className={`status-dot ${metric && !metric.unavailable ? "ready" : ""}`}
+        />
+        {metric?.unavailable
+          ? "Source unavailable"
+          : metric
+            ? metric.status
+            : "No measurement"}
+      </div>
+    </article>
+  );
+}
+function ScoreBreakdown({ score }: { score?: TransparentRiskScore }) {
+  return (
+    <div className="factor-list">
+      {score ? (
+        score.factors.map((f) => (
+          <div className="factor" key={f.id}>
+            <div>
+              <span>{f.name.split(" (")[0]}</span>
+              <strong>
+                {f.unavailable
+                  ? "Unavailable"
+                  : `${f.contributionPoints} / ${f.maxPoints}`}
+              </strong>
+            </div>
+            <div className="factor-track">
+              <span
+                style={{
+                  width: `${f.maxPoints ? (f.contributionPoints / f.maxPoints) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            <small>{f.rawValue}</small>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5 truncate max-w-xs sm:max-w-md md:max-w-lg">
-            {subtitle}
-          </p>
+        ))
+      ) : (
+        <div className="quiet-empty">
+          Factors appear when the required inputs are complete.
         </div>
-      </div>
-
-      {/* Quick Sibling View Switcher */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 text-xs shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-        <span className="text-[11px] text-slate-600 font-medium mr-1 hidden xl:inline">Switch view:</span>
-        <button
-          onClick={() => setCurrentTab('map')}
-          className={`rounded-lg px-2.5 py-1.5 font-semibold transition cursor-pointer ${
-            activeKey === 'map'
-              ? 'bg-slate-900 text-white shadow-2xs'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
-          }`}
-        >
-          GIS Map
-        </button>
-        <button
-          onClick={() => setCurrentTab('alerts')}
-          className={`rounded-lg px-2.5 py-1.5 font-semibold transition cursor-pointer ${
-            activeKey === 'alerts'
-              ? 'bg-slate-900 text-white shadow-2xs'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
-          }`}
-        >
-          Alerts
-        </button>
-        <button
-          onClick={() => setCurrentTab('analytics')}
-          className={`rounded-lg px-2.5 py-1.5 font-semibold transition cursor-pointer ${
-            activeKey === 'analytics'
-              ? 'bg-slate-900 text-white shadow-2xs'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
-          }`}
-        >
-          Analytics
-        </button>
-        <button
-          onClick={() => setCurrentTab('replay')}
-          className={`rounded-lg px-2.5 py-1.5 font-semibold transition cursor-pointer ${
-            activeKey === 'replay'
-              ? 'bg-slate-900 text-white shadow-2xs'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
-          }`}
-        >
-          Event Replay
-        </button>
-        <button
-          onClick={() => setCurrentTab('about')}
-          className={`rounded-lg px-2.5 py-1.5 font-semibold transition cursor-pointer ${
-            activeKey === 'about'
-              ? 'bg-slate-900 text-white shadow-2xs'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
-          }`}
-        >
-          Architecture
-        </button>
-      </div>
+      )}
     </div>
   );
+}
 
+export default function App() {
+  const { data, loading, error, refresh, age } = useLiveCatchment();
+  const [tab, setTab] = useState<Tab>("overview");
+  const [selected, setSelected] = useState(
+    DEFAULT_CATCHMENT_CONFIG.villages[0].id,
+  );
+  const [search, setSearch] = useState("");
+  const [mobileNav, setMobileNav] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [scoreOpen, setScoreOpen] = useState(false);
+  const [readOnlyReport, setReadOnlyReport] = useState(false);
+  useEffect(() => {
+    if (!scoreOpen && !readOnlyReport) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const trap = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const elements = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".dialog button, .dialog a, .dialog input, .dialog select",
+        ),
+      );
+      const first = elements[0],
+        last = elements[elements.length - 1];
+      if (!first) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", trap);
+    return () => {
+      document.removeEventListener("keydown", trap);
+      opener?.focus();
+    };
+  }, [scoreOpen, readOnlyReport]);
+  const villages = data?.villages ?? [];
+  const village = villages.find((v) => v.id === selected);
+  const configVillage = DEFAULT_CATCHMENT_CONFIG.villages.find(
+    (v) => v.id === selected,
+  )!;
+  const score = data?.riskScore;
+  const watchCount = villages.filter(
+    (v) => v.riskLevel === "HIGH" || v.riskLevel === "SEVERE",
+  ).length;
+  const selectedScore = data?.villageScores[selected];
+  const filtered = villages.filter((v) =>
+    v.name.toLowerCase().includes(search.toLowerCase()),
+  );
+  const selectedTitle = NAV.find((n) => n.id === tab)?.label ?? "Overview";
+  const sourceMetrics = data
+    ? [
+        data.metrics.rainfall,
+        data.metrics.soilMoisture,
+        data.metrics.riverLevel,
+      ]
+    : [];
+  const sourcesReady = sourceMetrics.filter((m) => !m.unavailable).length;
+  const signalLabel = data
+    ? data.isCached || age >= 15
+      ? `Cached · ${age}m old`
+      : "Live model data"
+    : loading
+      ? "Connecting to sources"
+      : "Sources unavailable";
+  const selectedTier = village?.riskLevel;
+  const setView = (id: Tab) => {
+    setTab(id);
+    setMobileNav(false);
+  };
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(""), 4500);
+    return () => clearTimeout(t);
+  }, [notice]);
+  useEffect(() => {
+    const close = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setScoreOpen(false);
+        setReadOnlyReport(false);
+        setMobileNav(false);
+      }
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, []);
+  function exportSnapshot() {
+    if (!data) return;
+    const report = {
+      product: "HydroGuard",
+      type: "Uncalibrated model-data snapshot; not an official warning",
+      exportedAt: new Date().toISOString(),
+      fetchedAt: data.fetchedAtIso,
+      modelValidAt: data.validAtIso,
+      cached: data.isCached || age >= 15,
+      scoringVersion: "2.0",
+      villages: villages.map((v) => ({
+        id: v.id,
+        name: v.name,
+        lat: v.lat,
+        lon: v.lon,
+        score: v.riskScore,
+        tier: v.riskLevel,
+        factors: data.villageScores[v.id]?.factors,
+      })),
+      sources: sourceMetrics.map((m) => ({
+        name: m.sourceName,
+        value: m.value,
+        unit: m.unit,
+        unavailable: !!m.unavailable,
+      })),
+      limitations:
+        "No verified shelter or route information. No field sensors. Scores are not probabilities.",
+    };
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `hydroguard-live-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setNotice("Live snapshot downloaded");
+  }
+  const riskCopy = useMemo(() => {
+    if (!score)
+      return {
+        title: "Listening to the catchment.",
+        text: "Connecting to live weather and river models. Risk is shown only when the required data is complete.",
+      };
+    return {
+      title: {
+        LOW: "A quieter catchment. Stay informed.",
+        MEDIUM: "Changing conditions. Stay aware.",
+        HIGH: "Elevated indicators. Watch closely.",
+        SEVERE: "High modelled risk. Stay informed.",
+      }[score.riskLevel],
+      text: `The highest current score is in ${shortName(data!.drivingVillageName)}. ${watchCount ? `${watchCount} villages are at high or severe modelled risk.` : "No monitored village is above the medium tier."}`,
+    };
+  }, [score, data, watchCount]);
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      {/* 1. Header Navigation with Mode Switcher & Real Badges */}
-      <Navbar
-        currentTab={currentTab}
-        onTabChange={(tab) => setCurrentTab(tab)}
-        overallRisk={activeMetrics.overallRisk}
-        riskUnknown={liveUnavailable}
-        activeAlertsCount={liveUnavailable ? 0 : activeMetrics.activeAlerts.length}
-        appMode={appMode}
-        onModeToggle={(m) => setAppMode(m)}
-        liveDataStatus={liveDataStatus}
-        onOpenConfigModal={() => setIsConfigModalOpen(true)}
-      />
-
-      {/* 2. Mode Status & Scenario Control Bar */}
-      <DemoScenarioBar
-        scenario={scenario}
-        onScenarioChange={(newScenario) => setScenario(newScenario)}
-        selectedCatchmentId={selectedCatchmentId}
-        onCatchmentChange={(id) => setSelectedCatchmentId(id)}
-        isAutoPlaying={isAutoPlaying}
-        onToggleAutoPlay={() => setIsAutoPlaying(!isAutoPlaying)}
-        appMode={appMode}
-        onModeToggle={(m) => setAppMode(m)}
-        onRefreshLive={loadLiveData}
-        isRefreshingLive={isRefreshingLive}
-        liveStatusText={
-          liveDataStatus === 'success'
-            ? `Open-Meteo forecast + GloFAS model data, ${catchmentConfig.villages.length} villages`
-            : liveDataStatus === 'cached'
-            ? 'Cached Open-Meteo response (offline fallback)'
-            : liveDataStatus === 'error'
-            ? 'No live data available'
-            : 'Connecting...'
-        }
-      />
-
-      {/* Main Viewport Container */}
-      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        {showLiveGate ? (
-          <div
-            role="status"
-            className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-xs space-y-3"
-          >
-            <h2 className="text-base font-bold text-slate-900">
-              {liveDataStatus === 'loading' ? 'Loading live data' : 'No live data available'}
-            </h2>
-            <p className="text-sm text-slate-600">
-              {liveDataStatus === 'loading'
-                ? 'Fetching Open-Meteo model data for each village.'
-                : 'HydroGuard could not reach Open-Meteo and has no recent cached response, so it is showing no risk values instead of guessing. Check your connection and try again, or switch to Demo Simulator.'}
-            </p>
-            <div className="flex justify-center gap-2">
+    <div className="app-shell">
+      <a className="skip-link" href="#main">
+        Skip to dashboard
+      </a>
+      {mobileNav && (
+        <button
+          aria-label="Close navigation"
+          className="nav-overlay"
+          onClick={() => setMobileNav(false)}
+        />
+      )}
+      <aside className={`sidebar ${mobileNav ? "is-open" : ""}`}>
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setView("overview");
+          }}
+          className="brand"
+        >
+          <span className="brand-icon">
+            <Waves size={25} />
+          </span>
+          <span>
+            Hydro<span className="brand-light">Guard</span>
+            <small>CATCHMENT INTELLIGENCE</small>
+          </span>
+        </a>
+        <div className="workspace-label">
+          WORKSPACE <span>01</span>
+        </div>
+        <div className="catchment-switch">
+          <span className="catchment-avatar">
+            <MountainMark />
+          </span>
+          <div>
+            Rishi Ganga<small>Uttarakhand, India</small>
+          </div>
+          <ChevronDown size={14} />
+        </div>
+        <div className="nav-label">MONITOR</div>
+        <nav aria-label="Main navigation">
+          {NAV.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              className={`nav-item ${tab === id ? "active" : ""}`}
+              aria-current={tab === id ? "page" : undefined}
+              onClick={() => setView(id)}
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+              {id === "overview" && <span className="nav-live" />}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="source-mini">
+            <span className={`status-dot ${data ? "ready" : ""}`} />
+            <span>
+              {data ? "Live sources connected" : "Live sources pending"}
+              <small>Open-Meteo · Copernicus</small>
+            </span>
+          </div>
+          <div className="prototype-box">
+            <ShieldCheck size={18} />
+            <strong>Built for informed decisions</strong>
+            <p>Research prototype. Follow official local advisories.</p>
+            <button onClick={() => setView("method")}>
+              Understand the model <ArrowUpRight size={13} />
+            </button>
+          </div>
+          <div className="sidebar-foot">
+            <span className="version">HG / 2.0</span>
+            <span>Live data only</span>
+          </div>
+        </div>
+      </aside>
+      <div className="main-shell">
+        <header className="topbar">
+          <div className="breadcrumb">
+            <button
+              className="mobile-menu icon-button"
+              aria-label="Open navigation"
+              onClick={() => setMobileNav(true)}
+            >
+              <Menu size={20} />
+            </button>
+            <span>Workspace</span>
+            <ChevronRight size={13} />
+            <strong>{selectedTitle}</strong>
+          </div>
+          <div className="topbar-right">
+            <span className="live-pill">
+              <span className={`status-dot ${data ? "ready" : ""}`} />
+              LIVE FEEDS
+            </span>
+            <button
+              className="icon-button"
+              title="Methodology"
+              aria-label="Read methodology"
+              onClick={() => setView("method")}
+            >
+              <CircleHelp size={18} />
+            </button>
+            <div className="profile-mark">HG</div>
+          </div>
+        </header>
+        <main id="main">
+          <div className="page-heading">
+            <div>
+              <div className="eyebrow">
+                HIMALAYAN CATCHMENT NETWORK <span>/</span> RISHI GANGA
+              </div>
+              <h1>
+                {tab === "overview" ? "Catchment overview" : selectedTitle}
+              </h1>
+              <p>
+                {tab === "overview"
+                  ? "A clearer view of changing conditions. Every signal, in context."
+                  : tab === "villages"
+                    ? "Local model scores, grounded in configured village coordinates."
+                    : tab === "sources"
+                      ? "Know where each value comes from—and what it can tell you."
+                      : tab === "replay"
+                        ? "Explore historical reanalysis. This is separate from current live conditions."
+                        : "Transparent rules. Visible assumptions. Measurable limitations."}
+              </p>
+            </div>
+            <div className="page-actions">
               <button
-                onClick={loadLiveData}
-                disabled={isRefreshingLive}
-                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60 cursor-pointer"
+                className="button secondary"
+                disabled={loading}
+                onClick={() => void refresh()}
               >
-                Try again
+                <RefreshCw size={15} className={loading ? "spin" : ""} />
+                {loading ? "Refreshing" : "Refresh"}
               </button>
               <button
-                onClick={() => setAppMode('DEMO')}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 cursor-pointer"
+                className="button primary"
+                disabled={!data}
+                onClick={exportSnapshot}
               >
-                Switch to Demo Simulator
+                <ArrowDownToLine size={15} />
+                Export snapshot
               </button>
             </div>
           </div>
-        ) : (
-        <AnimatePresence mode="wait">
-          {/* TAB 1: DASHBOARD */}
-          {currentTab === 'dashboard' && (
-            <motion.div
-              key="dashboard"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-6"
-            >
-              {/* Top Title & Operational Status Header */}
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-slate-200/80 pb-4">
+          <div
+            className={`connection-bar ${error ? "connection-error" : ""}`}
+            role="status"
+          >
+            <span className="connection-left">
+              {error ? <WifiOff size={14} /> : <Radio size={14} />}
+              <strong>{signalLabel}</strong>
+              <span className="divider" />
+              <span>
+                {data
+                  ? `Retrieved ${formatTime(data.fetchedAtIso)}`
+                  : "No synthetic values or demo fallback"}
+              </span>
+            </span>
+            <span>
+              {data
+                ? `Valid hour ${formatTime(data.validAtIso)}`
+                : "Refreshes every 10 minutes"}
+            </span>
+          </div>
+          {error && (
+            <div className="error-banner" role="alert">
+              <div>
+                <strong>Live data isn’t available right now.</strong>
+                <p>{error} No risk score is being inferred.</p>
+              </div>
+              <button
+                className="button secondary"
+                onClick={() => void refresh()}
+                disabled={loading}
+              >
+                Retry connection
+              </button>
+            </div>
+          )}
+          {tab === "overview" && (
+            <>
+              <section
+                className={`risk-hero ${score?.riskLevel.toLowerCase() ?? "pending"}`}
+              >
+                <div className="hero-landscape" aria-hidden="true">
+                  <svg viewBox="0 0 550 250">
+                    <path d="M0 210 75 100 120 140 205 20 295 120 330 75 430 160 500 80 550 150V250H0Z" />
+                    <path d="M0 240 90 180 155 200 235 110 300 165 385 105 460 190 550 165V250H0Z" />
+                    <path d="M0 250 85 218 155 235 255 190 315 225 390 185 470 230 550 205V250Z" />
+                  </svg>
+                </div>
+                <div className="hero-content">
+                  <div className="hero-eyebrow">
+                    <span className="status-dot ready" /> CATCHMENT STATUS{" "}
+                    <span className="hero-tier">
+                      {score ? `${score.riskLevel} TIER` : "AWAITING DATA"}
+                    </span>
+                  </div>
+                  <h2>{riskCopy.title}</h2>
+                  <p>{riskCopy.text}</p>
+                  <button
+                    className="hero-link"
+                    disabled={!data}
+                    onClick={() => setScoreOpen(true)}
+                  >
+                    Understand this score <ArrowRight size={15} />
+                  </button>
+                </div>
+                <div className="hero-score">
+                  <div
+                    className="score-ring"
+                    style={
+                      {
+                        "--score": `${(score?.totalScore ?? 0) * 3.6}deg`,
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div>
+                      <strong>{score?.totalScore ?? "—"}</strong>
+                      <span>OUT OF 100</span>
+                    </div>
+                  </div>
+                  <span>Uncalibrated risk index</span>
+                </div>
+              </section>
+              <div className="metrics-grid">
+                <MetricCard
+                  label="Rainfall · rolling 24h"
+                  metric={data?.metrics.rainfall}
+                  icon={CloudRain}
+                />
+                <MetricCard
+                  label="Topsoil moisture"
+                  metric={data?.metrics.soilMoisture}
+                  icon={Leaf}
+                />
+                <MetricCard
+                  label="River discharge · daily"
+                  metric={data?.metrics.riverLevel}
+                  icon={Waves}
+                />
+                <article className="metric-card">
+                  <div className="metric-heading">
+                    <span>Villages at high / severe</span>
+                    <MapPin size={17} />
+                  </div>
+                  <div className="metric-value">
+                    {data ? watchCount : "—"}
+                    <small>
+                      of {DEFAULT_CATCHMENT_CONFIG.villages.length} monitored
+                    </small>
+                  </div>
+                  <div className="metric-bottom">
+                    <span className="status-dot" />
+                    Model scores, not official alerts
+                  </div>
+                </article>
+              </div>
+              <div className="main-grid">
+                <section className="panel map-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h3>Catchment geography</h3>
+                      <p>Village locations & current risk tiers</p>
+                    </div>
+                    <button
+                      className="text-button"
+                      onClick={() => setView("villages")}
+                    >
+                      View all <ArrowUpRight size={14} />
+                    </button>
+                  </div>
+                  <LiveMap
+                    villages={villages}
+                    selected={selected}
+                    onSelect={setSelected}
+                  />
+                  <div className="map-legend">
+                    {Object.entries(tierColors).map(([tier, color]) => (
+                      <span key={tier}>
+                        <i style={{ background: color }} />
+                        {tier.charAt(0) + tier.slice(1).toLowerCase()}
+                      </span>
+                    ))}
+                    <span>
+                      <i style={{ background: "#778b90" }} />
+                      Unavailable
+                    </span>
+                  </div>
+                </section>
+                <section className="panel village-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h3>Village spotlight</h3>
+                      <p>Select a marker to explore</p>
+                    </div>
+                    <MapPin size={18} />
+                  </div>
+                  <label className="sr-only" htmlFor="village-select">
+                    Select village
+                  </label>
+                  <select
+                    id="village-select"
+                    value={selected}
+                    onChange={(e) => setSelected(e.target.value)}
+                  >
+                    {DEFAULT_CATCHMENT_CONFIG.villages.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="village-title">
+                    <h2>{shortName(configVillage.name)}</h2>
+                    <span
+                      className="tier-badge"
+                      style={{
+                        color: selectedTier
+                          ? tierColors[selectedTier]
+                          : "#6c7e78",
+                      }}
+                    >
+                      {selectedTier ?? "NO DATA"}
+                    </span>
+                  </div>
+                  <div className="coordinate">
+                    {configVillage.lat.toFixed(4)}° N &nbsp;{" "}
+                    {configVillage.lon.toFixed(4)}° E
+                  </div>
+                  <div className="village-score">
+                    <strong>{village?.riskScore ?? "—"}</strong>
+                    <span>
+                      /100<small>Local model risk index</small>
+                    </span>
+                    <Activity size={26} />
+                  </div>
+                  <ScoreBreakdown score={selectedScore} />
+                  <div className="village-note">
+                    <ShieldCheck size={16} />
+                    <span>
+                      Shelters and routes require local verification. Follow
+                      official district advisories.
+                    </span>
+                  </div>
+                </section>
+              </div>
+              <div className="bottom-grid">
+                <section className="panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h3>How conditions are changing</h3>
+                      <p>
+                        {data
+                          ? shortName(data.drivingVillageName)
+                          : "Highest-scoring village"}{" "}
+                        · previous 24 hours
+                      </p>
+                    </div>
+                    <span className="small-tag">MODEL HISTORY</span>
+                  </div>
+                  <LiveTrend points={data?.trendHistory ?? []} />
+                </section>
+                <section className="panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h3>Source health</h3>
+                      <p>Visibility before certainty</p>
+                    </div>
+                    <span className="source-count">
+                      {sourcesReady}
+                      <small>/3</small>
+                    </span>
+                  </div>
+                  {[
+                    {
+                      title: "Weather model",
+                      sub: "Rainfall & topsoil · hourly",
+                      ok: !!data,
+                    },
+                    {
+                      title: "GloFAS river model",
+                      sub: "River discharge · daily",
+                      ok: !!data && !data.metrics.riverLevel.unavailable,
+                    },
+                    {
+                      title: "Field observations",
+                      sub: "No physical sensors connected",
+                      ok: false,
+                    },
+                  ].map((s) => (
+                    <div className="source-row" key={s.title}>
+                      <div className={`source-icon ${s.ok ? "connected" : ""}`}>
+                        {s.ok ? <Check size={15} /> : <Signal size={15} />}
+                      </div>
+                      <div>
+                        <strong>{s.title}</strong>
+                        <small>{s.sub}</small>
+                      </div>
+                      <span>{s.ok ? "Available" : "Unavailable"}</span>
+                    </div>
+                  ))}
+                  <button
+                    className="text-button source-details"
+                    onClick={() => setView("sources")}
+                  >
+                    Explore data provenance <ArrowRight size={14} />
+                  </button>
+                </section>
+              </div>
+            </>
+          )}
+          {tab === "villages" && (
+            <div className="panel village-monitor">
+              <div className="panel-heading">
                 <div>
-                  <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-                    Flash Flood Decision Support System
-                  </h1>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Rule-based, explainable risk scoring, wave travel-time estimates, and a CAP 1.2 exercise export.
+                  <h3>Monitored villages</h3>
+                  <p>
+                    All values come from the latest successful model response.
                   </p>
                 </div>
-
-                {/* Status Pills */}
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <div
-                    onClick={() => setIsConfigModalOpen(true)}
-                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 text-slate-700 shadow-2xs max-w-full min-w-0 cursor-pointer hover:bg-slate-50 transition"
-                    title="Click to view & edit catchment parameters"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-slate-700 shrink-0" />
-                    <span className="font-semibold truncate">{activeCatchment.name}</span>
-                    <span className="text-[10px] text-slate-400">({catchmentConfig.villages.length} villages)</span>
+                <label className="search">
+                  <Search size={16} />
+                  <input
+                    aria-label="Search villages"
+                    placeholder="Search villages…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Village</th>
+                      <th>Coordinates</th>
+                      <th>Risk index</th>
+                      <th>Tier</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((v) => (
+                      <tr key={v.id}>
+                        <td>
+                          <strong>{v.name}</strong>
+                        </td>
+                        <td className="mono">
+                          {v.lat?.toFixed(4)}, {v.lon?.toFixed(4)}
+                        </td>
+                        <td>
+                          <strong>{v.riskScore}</strong> / 100
+                        </td>
+                        <td>
+                          <span
+                            className="tier-badge"
+                            style={{ color: tierColors[v.riskLevel] }}
+                          >
+                            {v.riskLevel}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              setSelected(v.id);
+                              setView("overview");
+                            }}
+                          >
+                            Inspect <ArrowUpRight size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!filtered.length && (
+                  <div className="quiet-empty">
+                    {data
+                      ? "No villages match your search."
+                      : "Village scores are unavailable until live data is received."}
                   </div>
-
-                  {appMode === 'LIVE' ? (
-                    <div
-                      className={`flex items-center gap-1.5 rounded-lg border px-2.5 sm:px-3 py-1.5 shadow-2xs shrink-0 ${
-                        liveDataStatus === 'success'
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                          : liveDataStatus === 'cached'
-                          ? 'border-amber-200 bg-amber-50 text-amber-800'
-                          : 'border-slate-200 bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <span
-                        className={`h-2 w-2 rounded-full shrink-0 ${
-                          liveDataStatus === 'success' ? 'bg-emerald-600 animate-pulse' : liveDataStatus === 'cached' ? 'bg-amber-500' : 'bg-slate-400'
-                        }`}
-                      />
-                      <span className="font-bold">
-                        {liveDataStatus === 'success'
-                          ? 'Live model data'
-                          : liveDataStatus === 'cached'
-                          ? 'Cached model data'
-                          : liveDataStatus === 'error'
-                          ? 'No live data'
-                          : 'Loading live data'}
+                )}
+              </div>
+              <LiveMap
+                villages={villages}
+                selected={selected}
+                onSelect={(id) => {
+                  setSelected(id);
+                  setView("overview");
+                }}
+              />
+            </div>
+          )}
+          {tab === "sources" && (
+            <div className="sources-page">
+              {["rainfall", "soilMoisture", "riverLevel"].map((key) => {
+                const m = data?.metrics[key as "rainfall"];
+                return (
+                  <article className="panel provenance" key={key}>
+                    <div className="panel-heading">
+                      <h3>
+                        {key === "rainfall"
+                          ? "Rainfall"
+                          : key === "soilMoisture"
+                            ? "Topsoil moisture"
+                            : "River discharge"}
+                      </h3>
+                      <span className="small-tag">
+                        {m && !m.unavailable ? "MODEL DATA" : "UNAVAILABLE"}
                       </span>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 sm:px-3 py-1.5 text-purple-800 shadow-2xs shrink-0">
-                      <span className="h-2 w-2 rounded-full bg-purple-600 shrink-0" />
-                      <span className="font-bold">Demo Simulator ({scenario})</span>
+                    <h2>
+                      {m && !m.unavailable
+                        ? `${m.value} ${m.unit}`
+                        : "No current value"}
+                    </h2>
+                    <dl>
+                      <dt>Provider</dt>
+                      <dd>
+                        {m?.sourceName ??
+                          (key === "riverLevel"
+                            ? "Copernicus GloFAS via Open-Meteo"
+                            : "Open-Meteo forecast API")}
+                      </dd>
+                      <dt>Method</dt>
+                      <dd>
+                        {m?.sourceMethod ?? "Waiting for a valid response."}
+                      </dd>
+                      <dt>Data context</dt>
+                      <dd>
+                        {m?.details ??
+                          "Missing readings are never substituted with zero."}
+                      </dd>
+                      <dt>Retrieved</dt>
+                      <dd>{formatTime(data?.fetchedAtIso)}</dd>
+                    </dl>
+                    <a
+                      href={
+                        key === "riverLevel"
+                          ? "https://open-meteo.com/en/docs/flood-api"
+                          : "https://open-meteo.com/en/docs"
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Provider documentation <ExternalLink size={14} />
+                    </a>
+                  </article>
+                );
+              })}
+              <div className="panel provenance">
+                <h3>Freshness is part of the signal</h3>
+                <p>
+                  Rainfall and soil readings must cover the current UTC hour,
+                  with a complete 72-hour rainfall window. River discharge is a
+                  daily model value. A recent real response can be used for up
+                  to six hours during an outage and is labelled cached. It is
+                  never replaced with synthetic data.
+                </p>
+                <p>
+                  Nearby villages may share a model grid cell. Their scores
+                  should not be interpreted as independent sensor readings.
+                </p>
+              </div>
+            </div>
+          )}
+          {tab === "replay" && (
+            <Suspense
+              fallback={
+                <div className="quiet-empty">Loading archive explorer…</div>
+              }
+            >
+              <EventReplay />
+            </Suspense>
+          )}
+          {tab === "method" && (
+            <div className="method-grid">
+              <section className="panel prose">
+                <span className="eyebrow">MODEL CARD / VERSION 2.0</span>
+                <h2>Every score should be explainable.</h2>
+                <p>
+                  HydroGuard combines modelled rainfall, antecedent wetness,
+                  topsoil moisture and river discharge into a 0–100
+                  decision-support index. The score is{" "}
+                  <strong>not a flood probability</strong> and is not calibrated
+                  for operational warnings.
+                </p>
+                <div className="method-weights">
+                  {[
+                    ["Rainfall", "35%"],
+                    ["72h rainfall", "20%"],
+                    ["Topsoil", "25%"],
+                    ["Discharge", "20%"],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <strong>{value}</strong>
+                      <span>{label}</span>
                     </div>
-                  )}
+                  ))}
                 </div>
-              </div>
-
-              {/* Quick Section Navigation Bar */}
-              <nav aria-label="Dashboard quick jumps" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
-                <div className="flex items-center gap-1 text-xs font-bold text-slate-700">
-                  <Compass className="h-3.5 w-3.5 text-slate-800 shrink-0 ml-1" />
-                  <span className="hidden sm:inline">Jump to:</span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1 text-xs">
+                <h3>What the model does</h3>
+                <ul>
+                  <li>
+                    Uses the strongest of 1-hour, 3-hour and 24-hour rainfall
+                    indicators.
+                  </li>
+                  <li>
+                    Requires complete rainfall history and a current soil
+                    reading.
+                  </li>
+                  <li>
+                    Excludes unavailable river discharge and adjusts weights to
+                    44 / 25 / 31.
+                  </li>
+                  <li>
+                    Computes a separate score at each configured village
+                    coordinate.
+                  </li>
+                </ul>
+                <h3>What it cannot establish</h3>
+                <ul>
+                  <li>
+                    Flood extent, safe evacuation routes, or verified shelters.
+                  </li>
+                  <li>
+                    Warning lead time or the arrival time of an actual flood.
+                  </li>
+                  <li>Rock-and-ice avalanche or other cryospheric triggers.</li>
+                  <li>
+                    Independent confirmation: the indicators are correlated.
+                  </li>
+                </ul>
+                <h3>Validation required</h3>
+                <p>
+                  Compare against dated gauge records and verified events,
+                  include non-flood periods, and measure false alarms and missed
+                  events on a separate evaluation set. Reanalysis replay
+                  illustrates the rules; it does not prove forecast skill.
+                </p>
+              </section>
+              <div>
+                <section className="panel prose">
+                  <h3>Risk tiers</h3>
+                  {[
+                    ["LOW", "0–29"],
+                    ["MEDIUM", "30–59"],
+                    ["HIGH", "60–79"],
+                    ["SEVERE", "80–100"],
+                  ].map(([tier, range]) => (
+                    <div className="tier-row" key={tier}>
+                      <span
+                        className="tier-badge"
+                        style={{
+                          color: tierColors[tier as keyof typeof tierColors],
+                        }}
+                      >
+                        {tier}
+                      </span>
+                      <strong>{range}</strong>
+                    </div>
+                  ))}
+                  <p>
+                    Only the 24-hour rainfall cut-offs follow IMD categories.
+                    Other thresholds, weights and the assumed soil field
+                    capacity are HydroGuard heuristics.
+                  </p>
+                </section>
+                <section className="panel prose next-step">
+                  <ShieldCheck size={25} />
+                  <h3>Live inputs. Honest limits.</h3>
+                  <p>
+                    No demo mode, fabricated telemetry, simulated delivery
+                    receipts or unverified evacuation instructions.
+                  </p>
                   <a
-                    href="#citizen-guide"
-                    className="rounded-lg px-2.5 py-1 font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition shadow-2xs"
+                    href="https://github.com/molikf16-00/hydroguard"
+                    target="_blank"
+                    rel="noreferrer"
                   >
-                    Citizen Action Guide
+                    View project repository <ArrowUpRight size={14} />
                   </a>
-                  <a
-                    href="#telemetry"
-                    className="rounded-lg px-2.5 py-1 font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-                  >
-                    Telemetry
-                  </a>
-                  <a
-                    href="#map-section"
-                    className="rounded-lg px-2.5 py-1 font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-                  >
-                    Catchment GIS Map
-                  </a>
-                  <a
-                    href="#trend-section"
-                    className="rounded-lg px-2.5 py-1 font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-                  >
-                    Hydro Trend
-                  </a>
-                  <a
-                    href="#evacuation-section"
-                    className="rounded-lg px-2.5 py-1 font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-                  >
-                    Evacuation Matrix
-                  </a>
-                  <a
-                    href="#alerts-section"
-                    className="rounded-lg px-2.5 py-1 font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-                  >
-                    Broadcasts
-                  </a>
-                </div>
-
-                <div className="flex items-center gap-1.5 text-xs">
-                  <button
-                    onClick={() => setCurrentTab('replay')}
-                    className="flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
-                  >
-                    <History className="h-3 w-3" />
-                    <span>Event Replay</span>
-                  </button>
-                  <button
-                    onClick={() => setCurrentTab('analytics')}
-                    className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 font-bold text-slate-700 hover:bg-slate-900 hover:text-white transition shadow-2xs cursor-pointer"
-                  >
-                    <TrendingUp className="h-3 w-3" />
-                    <span>Analytics</span>
-                  </button>
-                </div>
-              </nav>
-
-              {/* 1. Primary Incident Risk Hero Card with "Why This Score" attribution */}
-              <div id="overview">
-                <MainRiskCard
-                  overallRisk={activeMetrics.overallRisk}
-                  riskScore={activeMetrics.riskScore}
-                  villages={activeMetrics.villages}
-                  leadTime={activeMetrics.leadTime}
-                  lastUpdated={activeMetrics.lastUpdated}
-                  headline={activeMetrics.headline}
-                  description={activeMetrics.description}
-                  catchmentName={activeCatchment.name}
-                  onViewEmergencyDetails={handleOpenEmergencyDetails}
-                  transparentScore={activeMetrics.transparentScore}
-                  onOpenWhyScore={() => setIsWhyScoreOpen(true)}
-                  onInspectMetric={(data) => setInspectMetric(data)}
-                />
+                </section>
               </div>
-
-              {/* Citizen Action Guide */}
-              <div id="citizen-guide">
-                <CitizenActionGuide
-                  overallRisk={activeMetrics.overallRisk}
-                  leadTime={activeMetrics.leadTime}
-                  affectedCluster={activeMetrics.affectedCluster}
-                  nearestShelter={activeMetrics.villages[0]?.nearestShelter || 'High Ground Safe School'}
-                  recommendedAction={activeMetrics.evacuationPriority}
-                  villages={activeMetrics.villages}
-                  onOpenRoute={handleOpenVillageRoute}
-                />
-              </div>
-
-              {/* 2. Multi-Source Telemetry Inputs (Audit click-enabled) */}
-              <div id="telemetry">
-                <MultiSourceCards
-                  rainfall={activeMetrics.rainfall}
-                  riverLevel={activeMetrics.riverLevel}
-                  soilMoisture={activeMetrics.soilMoisture}
-                  terrainSatellite={activeMetrics.terrainSatellite}
-                  isLive={appMode === 'LIVE'}
-                  onInspectMetric={(data) => setInspectMetric(data)}
-                />
-              </div>
-
-              {/* 3. Interactive Catchment Topography & Risk Map */}
-              <div id="map-section">
-                <RiskMap
-                  villages={activeMetrics.villages}
-                  overallRisk={activeMetrics.overallRisk}
-                  onSelectVillage={(v) => setSelectedVillageForModal(v)}
-                  onViewRoute={handleOpenVillageRoute}
-                />
-              </div>
-
-              {/* 4. Catchment Hydrological Risk Trend Chart */}
-              <div id="trend-section">
-                <RiskTrendChart
-                  trendHistory={activeMetrics.trendHistory}
-                  overallRisk={activeMetrics.overallRisk}
-                />
-              </div>
-
-              {/* 5. Evacuation Intelligence Matrix with Kinematic Lead Times & OASIS CAP generator */}
-              <div id="evacuation-section">
-                <EvacuationIntelligence
-                  villages={activeMetrics.villages}
-                  overallRisk={activeMetrics.overallRisk}
-                  onViewRouteModal={handleOpenVillageRoute}
-                  onOpenCapAlertModal={handleGenerateCap}
-                  onOpenConfigModal={() => setIsConfigModalOpen(true)}
-                  onInspectMetric={(data) => setInspectMetric(data)}
-                />
-              </div>
-
-              {/* 6. Emergency Broadcasts & Alert History */}
-              <div id="alerts-section" className="space-y-6">
-                <EmergencyAlertPanel
-                  overallRisk={activeMetrics.overallRisk}
-                  headline={activeMetrics.headline}
-                  description={activeMetrics.description}
-                  affectedCluster={activeMetrics.affectedCluster}
-                  leadTime={activeMetrics.leadTime}
-                  recommendedAction={activeMetrics.evacuationPriority}
-                  activeAlerts={activeMetrics.activeAlerts}
-                  onViewEvacuationPlan={handleOpenEmergencyDetails}
-                  onViewAffectedVillages={() => setCurrentTab('map')}
-                />
-
-                {/* 7. Multi-Channel Warning System Card with Honest Design Targets */}
-                <AlertChannelsCard onInspectMetric={inspectChannelMetric} />
-              </div>
-            </motion.div>
+            </div>
           )}
-
-          {/* TAB 2: DEDICATED RISK MAP PAGE */}
-          {currentTab === 'map' && (
-            <motion.div
-              key="map"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-4"
+          <footer className="footer">
+            <span>
+              <Waves size={15} /> HydroGuard{" "}
+              <span className="footer-separator">/</span> Catchment intelligence
+            </span>
+            <span>
+              Model data · Uncalibrated prototype · Not an official warning
+            </span>
+            <button onClick={() => setReadOnlyReport(true)}>
+              About this workspace <ArrowUpRight size={12} />
+            </button>
+          </footer>
+        </main>
+      </div>
+      {notice && (
+        <div className="toast" role="status">
+          <Check size={16} />
+          {notice}
+        </div>
+      )}
+      {(scoreOpen || readOnlyReport) && (
+        <div
+          className="dialog-backdrop"
+          onClick={() => {
+            setScoreOpen(false);
+            setReadOnlyReport(false);
+          }}
+        >
+          <div
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={
+              scoreOpen ? "Risk score explanation" : "About HydroGuard"
+            }
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              autoFocus
+              className="dialog-close icon-button"
+              aria-label="Close dialog"
+              onClick={() => {
+                setScoreOpen(false);
+                setReadOnlyReport(false);
+              }}
             >
-              {renderSubViewHeader(
-                'Catchment GIS Topography & Inundation Map',
-                'Topological contour elevation, kinematic wave arrival times, safe shelters, and evacuation paths.',
-                <Layers className="h-4 w-4 text-slate-800" />,
-                'map'
-              )}
-
-              <RiskMap
-                villages={activeMetrics.villages}
-                overallRisk={activeMetrics.overallRisk}
-                onSelectVillage={(v) => setSelectedVillageForModal(v)}
-                onViewRoute={handleOpenVillageRoute}
-              />
-            </motion.div>
-          )}
-
-          {/* TAB 3: DEDICATED ALERTS PAGE */}
-          {currentTab === 'alerts' && (
-            <motion.div
-              key="alerts"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-6"
-            >
-              {renderSubViewHeader(
-                'Emergency Broadcast Center & Warning Feeds',
-                'Common Alerting Protocol (CAP v1.2) multi-channel dispatch, sirens, SMS broadcast, and transmission logs.',
-                <Radio className="h-4 w-4 text-slate-800" />,
-                'alerts'
-              )}
-
-              <EmergencyAlertPanel
-                overallRisk={activeMetrics.overallRisk}
-                headline={activeMetrics.headline}
-                description={activeMetrics.description}
-                affectedCluster={activeMetrics.affectedCluster}
-                leadTime={activeMetrics.leadTime}
-                recommendedAction={activeMetrics.evacuationPriority}
-                activeAlerts={activeMetrics.activeAlerts}
-                onViewEvacuationPlan={handleOpenEmergencyDetails}
-                onViewAffectedVillages={() => setCurrentTab('map')}
-              />
-
-              <EvacuationIntelligence
-                villages={activeMetrics.villages}
-                overallRisk={activeMetrics.overallRisk}
-                onViewRouteModal={handleOpenVillageRoute}
-                onOpenCapAlertModal={handleGenerateCap}
-                  onOpenConfigModal={() => setIsConfigModalOpen(true)}
-                onInspectMetric={(data) => setInspectMetric(data)}
-              />
-
-              <AlertChannelsCard onInspectMetric={inspectChannelMetric} />
-            </motion.div>
-          )}
-
-          {/* TAB 4: DEDICATED ANALYTICS PAGE */}
-          {currentTab === 'analytics' && (
-            <motion.div
-              key="analytics"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-6"
-            >
-              {renderSubViewHeader(
-                'Hydrological Analytics & Sensor Runoff Diagnostics',
-                'Multi-source sensor correlation, time-series rainfall/river stage tracking, and kinematic catchment delay calculations.',
-                <BarChart3 className="h-4 w-4 text-slate-800" />,
-                'analytics'
-              )}
-
-              <AnalyticsView
-                isLive={appMode === 'LIVE'}
-                trendHistory={activeMetrics.trendHistory}
-                overallRisk={activeMetrics.overallRisk}
-                villages={activeMetrics.villages}
-                alertsCount={activeMetrics.activeAlerts.length}
-                transparentScore={activeMetrics.transparentScore}
-                onInspectMetric={(data) => setInspectMetric(data)}
-                onOpenWhyScore={() => setIsWhyScoreOpen(true)}
-              />
-            </motion.div>
-          )}
-
-          {/* TAB 5: TASK 3 EVENT REPLAY VIEW (ERA5 Reanalysis Historical Events) */}
-          {currentTab === 'replay' && (
-            <motion.div
-              key="replay"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-6"
-            >
-              {renderSubViewHeader(
-                'Historical Event Replay Engine (ERA5 Reanalysis)',
-                'Replay catastrophic Himalayan flash flood events step-by-step to stress-test early warning lead times.',
-                <History className="h-4 w-4 text-purple-600" />,
-                'replay'
-              )}
-
-              <EventReplayView />
-            </motion.div>
-          )}
-
-          {/* TAB 6: DEDICATED ARCHITECTURE PAGE */}
-          {currentTab === 'about' && (
-            <motion.div
-              key="about"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-6"
-            >
-              {renderSubViewHeader(
-                'System Architecture & Multi-Source Sensor Specifications',
-                'Hardware datalogging, radar stage measurement, telemetry failover topology, and early warning standards.',
-                <BookOpen className="h-4 w-4 text-slate-800" />,
-                'about'
-              )}
-
-              <AboutView />
-            </motion.div>
-          )}
-        </AnimatePresence>
-        )}
-      </main>
-
-      {/* Emergency Operational Details Modal */}
-      <EmergencyModal
-        isOpen={isEmergencyModalOpen}
-        onClose={() => setIsEmergencyModalOpen(false)}
-        overallRisk={activeMetrics.overallRisk}
-        headline={activeMetrics.headline}
-        affectedCluster={activeMetrics.affectedCluster}
-        leadTime={activeMetrics.leadTime}
-        selectedVillage={selectedVillageForModal}
-      />
-
-      {/* Metric Provenance & Source Audit Modal */}
-      <MetricSourceModal
-        onClose={() => setInspectMetric(null)}
-        data={inspectMetric}
-      />
-
-      {/* Transparent Score Attribution Modal ("Why This Score?") */}
-      <WhyThisScoreModal
-        isOpen={isWhyScoreOpen}
-        onClose={() => setIsWhyScoreOpen(false)}
-        scoreData={activeMetrics.transparentScore}
-      />
-
-      {/* OASIS CAP 1.2 XML Generator Modal */}
-      <CapAlertModal
-        isOpen={!!capModalVillage}
-        onClose={() => setCapModalVillage(null)}
-        village={capModalVillage}
-        overallRisk={activeMetrics.overallRisk}
-      />
-
-      {/* Editable Catchment Configuration Modal */}
-      <CatchmentConfigModal
-        isOpen={isConfigModalOpen}
-        onClose={() => setIsConfigModalOpen(false)}
-        currentConfig={catchmentConfig}
-        onSave={(updated) => setCatchmentConfig(updated)}
-        onReset={() => setCatchmentConfig(DEFAULT_CATCHMENT_CONFIG)}
-      />
-
-      {/* Operational System Footer */}
-      <Footer />
+              <X size={20} />
+            </button>
+            {scoreOpen ? (
+              <>
+                <span className="eyebrow">WHY THIS SCORE</span>
+                <h2>
+                  {score?.totalScore}/100 · {score?.riskLevel}
+                </h2>
+                <p>
+                  {data?.drivingVillageName} has the highest score in the
+                  monitored catchment.
+                </p>
+                <ScoreBreakdown score={score} />
+                <p className="dialog-note">{score?.methodologyNote}</p>
+              </>
+            ) : (
+              <>
+                <span className="eyebrow">HYDROGUARD / 2.0</span>
+                <h2>Clarity for changing conditions.</h2>
+                <p>
+                  A live-data decision-support workspace for the Rishi Ganga
+                  catchment. Built using public weather and river model APIs.
+                </p>
+                <p>
+                  The geographic map shows configured village coordinates. No
+                  surveyed shelter, population or route information is presented
+                  as operational data.
+                </p>
+                <p>
+                  Weather and river data: Open-Meteo and Copernicus. Map:
+                  OpenStreetMap contributors.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+function MountainMark() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="23"
+      height="23"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
+      <path d="m2 19 7-12 4 6 3-4 6 10Z" />
+      <path d="m6 12 3 2 3-2" />
+    </svg>
   );
 }

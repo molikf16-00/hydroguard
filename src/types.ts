@@ -1,8 +1,8 @@
-export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'SEVERE';
+export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "SEVERE";
 
-export type SimulationScenario = 'NORMAL' | 'RISING' | 'SEVERE';
+export type SimulationScenario = "NORMAL" | "RISING" | "SEVERE";
 
-export type AppMode = 'LIVE' | 'DEMO';
+export type AppMode = "LIVE" | "DEMO";
 
 export interface CatchmentOption {
   id: string;
@@ -16,40 +16,27 @@ export interface CatchmentOption {
 export interface VillageData {
   id: string;
   name: string;
-  cluster: string;
+  lat: number;
+  lon: number;
   riskLevel: RiskLevel;
-  population: number;
-  estimatedImpactTime: string;
-  nearestShelter: string;
-  shelterDistanceKm: number;
-  evacuationTimeMin: number;
-  recommendedAction: string;
-  elevationM: number;
-  coordinates: { xPercent: number; yPercent: number };
-  safeRoute: string[];
-  hazardFactors: string[];
-  lat?: number;
-  lon?: number;
-  distanceFromTriggerKm?: number;
-  walkingDistanceKm?: number;
-  leadTimeRangeDisplay?: string;
-  leadTimeFormula?: string;
-  /** Per-village transparent risk score (0-100), present in Live mode. */
-  riskScore?: number;
-  /** True when the village figures (shelter capacity, river distance...) are illustrative config values. */
-  illustrative?: boolean;
-  distanceFromRiverM?: number;
-  shelterCapacity?: number;
+  riskScore: number;
 }
 
 export interface SourceMetric {
   title: string;
-  iconType: 'rain' | 'river' | 'soil' | 'satellite';
+  iconType: "rain" | "river" | "soil" | "satellite";
   value: string;
   numericValue: number;
   unit: string;
-  trend: 'Increasing' | 'Decreasing' | 'Stable' | 'Elevated';
-  status: 'Normal' | 'Moderate' | 'High' | 'Critical' | 'Highly saturated' | 'Unavailable' | 'Not integrated';
+  trend: "Increasing" | "Decreasing" | "Stable" | "Elevated";
+  status:
+    | "Normal"
+    | "Moderate"
+    | "High"
+    | "Critical"
+    | "Highly saturated"
+    | "Unavailable"
+    | "Not integrated";
   statusLevel: RiskLevel;
   thresholdLabel: string;
   thresholdValue: string;
@@ -85,7 +72,7 @@ export interface AlertHistoryItem {
   level: RiskLevel;
   title: string;
   area: string;
-  status: 'ACTIVE' | 'DISPATCHED' | 'STANDBY' | 'RESOLVED';
+  status: "ACTIVE" | "DISPATCHED" | "STANDBY" | "RESOLVED";
   channels: string[];
   leadTime: string;
   instructions: string;
@@ -98,7 +85,7 @@ export interface ChannelStatus {
   name: string;
   icon: string;
   technology: string;
-  status: 'OPERATIONAL' | 'STANDBY' | 'READY' | 'MESH_ACTIVE' | 'PLANNED';
+  status: "OPERATIONAL" | "STANDBY" | "READY" | "MESH_ACTIVE" | "PLANNED";
   coverage: string;
   latency: string;
   notes: string;
@@ -115,7 +102,7 @@ export interface RiskFactorItem {
   maxPoints: number; // e.g. 35
   thresholdText: string;
   isWatchExceeded: boolean;
-  statusColor: 'emerald' | 'amber' | 'orange' | 'red';
+  statusColor: "emerald" | "amber" | "orange" | "red";
   description: string;
   /** True when the input could not be fetched; the factor is excluded and weights renormalized. */
   unavailable?: boolean;

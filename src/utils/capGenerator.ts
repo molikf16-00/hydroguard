@@ -1,4 +1,4 @@
-import { RiskLevel } from '../types';
+import { RiskLevel } from "../types";
 
 /**
  * OASIS COMMON ALERTING PROTOCOL (CAP) v1.2 GENERATOR: PROTOTYPE / EXERCISE ONLY
@@ -13,6 +13,7 @@ import { RiskLevel } from '../types';
 
 export interface CapAlertParameters {
   identifier?: string;
+  sentAt?: Date;
   headline: string;
   description: string;
   instruction: string;
@@ -27,34 +28,56 @@ export interface CapAlertParameters {
 }
 
 interface TierMapping {
-  urgency: 'Immediate' | 'Expected' | 'Future';
-  severity: 'Extreme' | 'Severe' | 'Moderate' | 'Minor';
-  certainty: 'Observed' | 'Likely' | 'Possible' | 'Unlikely';
-  responseType: 'Evacuate' | 'Prepare' | 'Monitor' | 'None';
+  urgency: "Immediate" | "Expected" | "Future";
+  severity: "Extreme" | "Severe" | "Moderate" | "Minor";
+  certainty: "Observed" | "Likely" | "Possible" | "Unlikely";
+  responseType: "Evacuate" | "Prepare" | "Monitor" | "None";
 }
 
 /** Modelled risk is a forecast, so certainty is never "Observed". */
 export const CAP_TIER_MAPPING: Record<RiskLevel, TierMapping> = {
-  SEVERE: { urgency: 'Immediate', severity: 'Severe', certainty: 'Likely', responseType: 'Evacuate' },
-  HIGH: { urgency: 'Expected', severity: 'Moderate', certainty: 'Possible', responseType: 'Prepare' },
-  MEDIUM: { urgency: 'Future', severity: 'Minor', certainty: 'Possible', responseType: 'Monitor' },
-  LOW: { urgency: 'Future', severity: 'Minor', certainty: 'Unlikely', responseType: 'None' },
+  SEVERE: {
+    urgency: "Immediate",
+    severity: "Severe",
+    certainty: "Likely",
+    responseType: "Evacuate",
+  },
+  HIGH: {
+    urgency: "Expected",
+    severity: "Moderate",
+    certainty: "Possible",
+    responseType: "Prepare",
+  },
+  MEDIUM: {
+    urgency: "Future",
+    severity: "Minor",
+    certainty: "Possible",
+    responseType: "Monitor",
+  },
+  LOW: {
+    urgency: "Future",
+    severity: "Minor",
+    certainty: "Unlikely",
+    responseType: "None",
+  },
 };
 
 const FEET_PER_METRE = 3.28084;
 const CIRCLE_RADIUS_KM = 3.5;
 
 export function generateCapXml(params: CapAlertParameters): string {
-  const now = new Date();
-  const stamp = now.toISOString().replace(/[-:T]/g, '').slice(0, 12);
-  const id = params.identifier || `HYDROGUARD-EXERCISE-${stamp}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const now = params.sentAt ?? new Date();
+  const stamp = now.toISOString().replace(/[-:T]/g, "").slice(0, 12);
+  const id =
+    params.identifier ||
+    `HYDROGUARD-EXERCISE-${stamp}-${Math.floor(1000 + Math.random() * 9000)}`;
   const sent = now.toISOString();
   const expires = new Date(now.getTime() + 4 * 3600 * 1000).toISOString();
   const tier = CAP_TIER_MAPPING[params.riskLevel];
   const altitudeLine =
-    typeof params.elevationM === 'number'
+    typeof params.elevationM === "number"
       ? `\n      <altitude>${Math.round(params.elevationM * FEET_PER_METRE)}</altitude>`
-      : '';
+      : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
@@ -97,17 +120,22 @@ export function generateCapXml(params: CapAlertParameters): string {
 
 function escapeXml(unsafe: string): string {
   return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
-export function downloadCapXmlFile(xmlContent: string, filename = 'hydroguard-cap-exercise.xml'): void {
-  const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8' });
+export function downloadCapXmlFile(
+  xmlContent: string,
+  filename = "hydroguard-cap-exercise.xml",
+): void {
+  const blob = new Blob([xmlContent], {
+    type: "application/xml;charset=utf-8",
+  });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
+  const link = document.createElement("a");
   link.href = url;
   link.download = filename;
   document.body.appendChild(link);
