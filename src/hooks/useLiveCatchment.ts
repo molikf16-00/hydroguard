@@ -43,7 +43,10 @@ export function useLiveCatchment() {
       }
       if (cacheAgeMinutes(result.fetchedAtIso) === null)
         throw new Error("Data has expired. A fresh response is required.");
-      if (!controller.signal.aborted) setData(result);
+      if (!controller.signal.aborted) {
+        setNow(Date.now());
+        setData(result);
+      }
     } catch (err) {
       if (!controller.signal.aborted) {
         setData(null);
