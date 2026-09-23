@@ -1,5 +1,5 @@
-import React from 'react';
-import { ShieldAlert } from 'lucide-react';
+import React from "react";
+import { ShieldAlert } from "lucide-react";
 
 export const Footer: React.FC = () => {
   return (
@@ -15,9 +15,11 @@ export const Footer: React.FC = () => {
           </span>
         </div>
         <p className="text-xs text-slate-600 max-w-3xl leading-relaxed">
-          A flash flood decision-support prototype built for Smart India Hackathon. It uses modelled weather and river
-          data, is not calibrated against gauge records, and is not connected to any alerting authority. Nothing shown
-          here is an official warning. In an emergency, call 112 or 1077 and follow instructions from local authorities.
+          A flash flood decision-support prototype built for Smart India
+          Hackathon. It uses modelled weather and river data, is not calibrated
+          against gauge records, and is not connected to any alerting authority.
+          Nothing shown here is an official warning. In an emergency, call 112
+          or 1077 and follow instructions from local authorities.
         </p>
       </div>
     </footer>

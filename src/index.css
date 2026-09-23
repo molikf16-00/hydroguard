@@ -40,3 +40,196 @@
 .animate-radar-ring {
   animation: radarSweep 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
+
+/* Preserve the original slate/emerald interface; refine typography and interaction. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 110px;
+}
+body {
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+button,
+a,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+button:not(:disabled) {
+  cursor: pointer;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid #10b981;
+  outline-offset: 3px;
+}
+.skip-link {
+  position: fixed;
+  top: -80px;
+  left: 16px;
+  z-index: 200;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+}
+.skip-link:focus {
+  top: 12px;
+}
+.tier-label {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid;
+}
+.tier-low {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+.tier-medium {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.tier-high {
+  color: #c2410c;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+.tier-severe {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+.map-wrap {
+  height: 420px;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+.live-map {
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+  background: #e2e8f0;
+}
+.map-label,
+.map-error,
+.map-note,
+.map-reset {
+  position: absolute;
+  z-index: 5;
+  background: #fffffff0;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #475569;
+}
+.map-label {
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.map-label span {
+  color: #64748b;
+  padding-left: 8px;
+  border-left: 1px solid #cbd5e1;
+}
+.map-reset {
+  top: 12px;
+  right: 12px;
+}
+.map-note {
+  bottom: 20px;
+  left: 12px;
+  right: 45px;
+  font-size: 10px;
+}
+.map-error {
+  top: 58px;
+  left: 12px;
+  right: 12px;
+  background: #fffbeb;
+  color: #92400e;
+}
+.village-tooltip {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 10px;
+  border-radius: 6px;
+}
+.leaflet-control-attribution {
+  font-size: 9px !important;
+}
+@media (max-width: 640px) {
+  .map-wrap {
+    height: 340px;
+  }
+  .map-label span {
+    display: none;
+  }
+  .map-note {
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Keep the original dialogs usable on narrow and short viewports. */
+[role="dialog"] {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+[role="dialog"] > div:first-child {
+  gap: 0.75rem;
+}
+[role="dialog"] > div:first-child > div {
+  min-width: 0;
+}
+[role="dialog"] > div:first-child > button {
+  flex-shrink: 0;
+  min-width: 2rem;
+  min-height: 2rem;
+}
+[role="dialog"] > div:first-child > div {
+  flex: 1 1 0%;
+}
+[role="dialog"] > div:first-child > div > div:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+[role="dialog"] > div:first-child > div > div:first-child {
+  flex-shrink: 0;
+}
+[role="dialog"] > div:first-child > button {
+  position: relative;
+  z-index: 1;
+}
+/* Prevent overflowing dashboard content from expanding mobile layout viewport. */
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+main,
+.grid > * {
+  min-width: 0;
+}
+main {
+  overflow-wrap: anywhere;
+}

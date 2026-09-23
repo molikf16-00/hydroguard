@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
 interface AnimatedNumberProps {
   value: number;
@@ -13,9 +13,9 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
   value,
   decimals = 0,
   duration = 600,
-  className = '',
-  prefix = '',
-  suffix = '',
+  className = "",
+  prefix = "",
+  suffix = "",
 }) => {
   const [displayValue, setDisplayValue] = useState(value);
 

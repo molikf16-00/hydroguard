@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   X,
   Copy,
@@ -10,10 +10,10 @@ import {
   Radio,
   ExternalLink,
   ShieldAlert,
-  Info
-} from 'lucide-react';
-import { VillageData, RiskLevel } from '../types';
-import { generateCapXml, downloadCapXmlFile } from '../utils/capGenerator';
+  Info,
+} from "lucide-react";
+import { VillageData, RiskLevel } from "../types";
+import { generateCapXml, downloadCapXmlFile } from "../utils/capGenerator";
 
 interface CapAlertModalProps {
   village: VillageData | null;
@@ -30,37 +30,45 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
 
+  const sentAt = useMemo(() => new Date(), [isOpen, village]);
+  const identifier = useMemo(
+    () => `HYDROGUARD-EXERCISE-${crypto.randomUUID()}`,
+    [isOpen, village],
+  );
   if (!isOpen) return null;
 
   const tierLevel: RiskLevel = village?.riskLevel ?? overallRisk;
-  const targetVillageName = village?.name || 'No village selected';
-  const targetCluster = village?.cluster || 'n/a';
+  const targetVillageName = village?.name || "No village selected";
+  const targetCluster = "Rishi Ganga catchment";
   const targetLat = village?.lat ?? 30.4884;
   const targetLon = village?.lon ?? 79.6972;
-  const leadTimeStr = village?.leadTimeRangeDisplay || village?.estimatedImpactTime || 'n/a';
+  const leadTimeStr = "Not forecast";
   const tierLabel: Record<RiskLevel, string> = {
-    SEVERE: 'Severe tier',
-    HIGH: 'High tier',
-    MEDIUM: 'Medium tier',
-    LOW: 'Low tier (no alert warranted)',
+    SEVERE: "Severe tier",
+    HIGH: "High tier",
+    MEDIUM: "Medium tier",
+    LOW: "Low model tier",
   };
   const headlineByTier: Record<RiskLevel, string> = {
     SEVERE: `EXERCISE: SEVERE FLASH FLOOD RISK, ${targetVillageName.toUpperCase()}`,
     HIGH: `EXERCISE: FLOOD WATCH, ${targetVillageName.toUpperCase()}`,
     MEDIUM: `EXERCISE: WEATHER ADVISORY, ${targetVillageName.toUpperCase()}`,
-    LOW: `EXERCISE: NO ALERT WARRANTED, ${targetVillageName.toUpperCase()}`,
+    LOW: `EXERCISE: LOW MODEL TIER, ${targetVillageName.toUpperCase()}`,
   };
   const descriptionByTier: Record<RiskLevel, string> = {
-    SEVERE: 'Modelled rainfall, soil moisture and river indicators are at a severe level for this village.',
-    HIGH: 'Several modelled indicators are above their watch levels for this village.',
-    MEDIUM: 'Modelled rainfall and soil moisture are above normal for this village.',
-    LOW: 'Modelled indicators are within normal ranges. This template is shown for demonstration only.',
+    SEVERE:
+      "Modelled rainfall, soil moisture and river indicators are at a severe level for this village.",
+    HIGH: "Several modelled indicators are above their watch levels for this village.",
+    MEDIUM:
+      "Modelled rainfall and soil moisture are above normal for this village.",
+    LOW: "Available model inputs produced a low score. This does not establish safe conditions.",
   };
   const instructionByTier: Record<RiskLevel, string> = {
-    SEVERE: `Follow instructions from local authorities. Suggested shelter: ${village?.nearestShelter || 'nearest designated high ground'}. Avoid riverbeds and bridge crossings.`,
-    HIGH: 'Prepare emergency supplies and be ready to move to the assembly point if told to.',
-    MEDIUM: 'Stay alert, keep away from riverbeds, and monitor the local advisory channel.',
-    LOW: 'No action needed.',
+    SEVERE: "Exercise only. Follow official local authority advisories.",
+    HIGH: "Prepare emergency supplies and be ready to move to the assembly point if told to.",
+    MEDIUM:
+      "Stay alert, keep away from riverbeds, and monitor the local advisory channel.",
+    LOW: "Exercise only. Continue following official local authority advisories.",
   };
   const capXml = generateCapXml({
     headline: headlineByTier[tierLevel],
@@ -70,7 +78,8 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
     cluster: targetCluster,
     lat: targetLat,
     lon: targetLon,
-    elevationM: village?.elevationM,
+    sentAt,
+    identifier,
     leadTimeDisplay: leadTimeStr,
     riskLevel: tierLevel,
   });
@@ -80,18 +89,24 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     } catch (e) {
-      console.warn('Copy failed', e);
+      console.warn("Copy failed", e);
     }
   };
 
   const handleDownload = () => {
-    downloadCapXmlFile(capXml, `hydroguard-cap-exercise-${village?.id || 'village'}.xml`);
+    downloadCapXmlFile(
+      capXml,
+      `hydroguard-cap-exercise-${village?.id || "village"}.xml`,
+    );
   };
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
         <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-label="CAP exercise export"
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -121,6 +136,7 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
 
             <button
               onClick={onClose}
+              aria-label="Close CAP export"
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition cursor-pointer"
             >
               <X className="h-5 w-5" />
@@ -132,18 +148,23 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
               role="note"
               className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700"
             >
-              PROTOTYPE EXERCISE: this is not an official alert. HydroGuard is not connected to any alerting authority.
+              PROTOTYPE EXERCISE: this is not an official alert. HydroGuard is
+              not connected to any alerting authority.
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
-                  TARGET AREA & ESTIMATED WAVE TRAVEL TIME
+                  TARGET AREA & FORECAST LIMITS
                 </span>
                 <span className="font-bold text-slate-900 text-sm">
                   {targetVillageName} — {targetCluster}
                 </span>
                 <span className="text-[11px] text-slate-500 block">
-                  Lead Time: <strong className="font-mono text-red-700">{leadTimeStr}</strong> (assumption-based estimate)
+                  Lead Time:{" "}
+                  <strong className="font-mono text-red-700">
+                    {leadTimeStr}
+                  </strong>{" "}
+                  (wave arrival is not predicted)
                 </span>
               </div>
 
@@ -155,7 +176,9 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
                   {copied ? (
                     <>
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="text-emerald-700 font-mono">Copied!</span>
+                      <span className="text-emerald-700 font-mono">
+                        Copied!
+                      </span>
                     </>
                   ) : (
                     <>
@@ -184,10 +207,17 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-600 space-y-1">
               <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-slate-800 text-[10px] font-mono">
                 <Info className="h-3.5 w-3.5 text-slate-600" />
-                <span>Format only: not connected to any alerting authority</span>
+                <span>
+                  Format only: not connected to any alerting authority
+                </span>
               </div>
               <p className="text-[11px] leading-relaxed">
-                This shows how a HydroGuard result could be expressed in the OASIS CAP 1.2 format that alerting systems use. The payload is marked status=Exercise and uses placeholder sender details. Sending real alerts would need agreement with, and issuance by, the responsible authority.</p>
+                This shows how a HydroGuard result could be expressed in the
+                OASIS CAP 1.2 format that alerting systems use. The payload is
+                marked status=Exercise and uses placeholder sender details.
+                Sending real alerts would need agreement with, and issuance by,
+                the responsible authority.
+              </p>
             </div>
           </div>
 
@@ -195,6 +225,7 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
           <div className="border-t border-slate-100 bg-slate-50 px-6 py-3.5 flex justify-end">
             <button
               onClick={onClose}
+              aria-label="Dismiss CAP preview"
               className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-bold text-white hover:bg-slate-800 transition cursor-pointer"
             >
               Close Alert Preview

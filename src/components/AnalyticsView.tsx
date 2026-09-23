@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -12,10 +12,31 @@ import {
   Compass,
   ArrowUpRight,
   Info,
-  Scale
-} from 'lucide-react';
-import { TrendPoint, RiskLevel, VillageData, MetricInspectionData, TransparentRiskScore } from '../types';
-import { HISTORICAL_COMPARISONS } from '../data/mockData';
+  Scale,
+} from "lucide-react";
+import {
+  TrendPoint,
+  RiskLevel,
+  VillageData,
+  MetricInspectionData,
+  TransparentRiskScore,
+} from "../types";
+const HISTORICAL_COMPARISONS = [
+  {
+    event: "Kedarnath, June 2013",
+    location: "Mandakini valley",
+    trigger: "Rainfall and lake outburst",
+    inScope: "Rainfall indicators only",
+    status: "Separate ERA5 archive replay; not forecast validation",
+  },
+  {
+    event: "Chamoli, February 2021",
+    location: "Rishi Ganga valley",
+    trigger: "Rock-and-ice avalanche",
+    inScope: "No",
+    status: "Shown as an out-of-scope replay",
+  },
+];
 
 interface AnalyticsViewProps {
   isLive?: boolean;
@@ -39,11 +60,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   onOpenWhyScore,
 }) => {
   const affectedVillagesCount = villages.filter(
-    (v) => v.riskLevel === 'SEVERE' || v.riskLevel === 'HIGH'
+    (v) => v.riskLevel === "SEVERE" || v.riskLevel === "HIGH",
   ).length;
 
   const currentPoint = trendHistory[trendHistory.length - 1];
-  const riverFactor = transparentScore?.factors.find((f) => f.id === 'river-discharge');
+  const riverFactor = transparentScore?.factors.find(
+    (f) => f.id === "river-discharge",
+  );
 
   return (
     <div className="space-y-6">
@@ -85,25 +108,34 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         <div
           onClick={() =>
             onInspectMetric?.({
-              title: 'Weighted Composite Flood Risk Index',
+              title: "Weighted Composite Flood Risk Index",
               value: `${transparentScore?.totalScore || currentPoint.riskScore}`,
-              unit: '/ 100',
+              unit: "/ 100",
               status: overallRisk,
               statusLevel: overallRisk,
-              source: 'HydroGuard rule-based scoring engine (uncalibrated)',
-              timestamp: isLive ? 'Computed from the latest model fetch' : 'Computed from synthetic demo inputs',
+              source: "HydroGuard rule-based scoring engine (uncalibrated)",
+              timestamp: isLive
+                ? "Computed from the latest model fetch"
+                : "Computed from synthetic demo inputs",
               methodNote: transparentScore
-                ? `Weighted rules: ${transparentScore.factors.filter((f) => !f.unavailable).map((f) => `${f.weightPercent}% ${f.name}`).join(' + ')}.`
-                : 'Weighted rules over rainfall, antecedent rainfall, soil moisture and river discharge.',
-              threshold: 'Low: 0-29 | Medium: 30-59 | High: 60-79 | Severe: 80-100',
+                ? `Weighted rules: ${transparentScore.factors
+                    .filter((f) => !f.unavailable)
+                    .map((f) => `${f.weightPercent}% ${f.name}`)
+                    .join(" + ")}.`
+                : "Weighted rules over rainfall, antecedent rainfall, soil moisture and river discharge.",
+              threshold:
+                "Low: 0-29 | Medium: 30-59 | High: 60-79 | Severe: 80-100",
             })
           }
           className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs cursor-pointer hover:border-slate-300 transition"
           title="Click to view full provenance & audit"
         >
-          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Flood Risk Score</span>
+          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+            Flood Risk Score
+          </span>
           <div className="mt-1 text-2xl font-extrabold font-mono text-rose-600">
-            {transparentScore?.totalScore || currentPoint.riskScore}<span className="text-xs text-slate-400">/100</span>
+            {transparentScore?.totalScore || currentPoint.riskScore}
+            <span className="text-xs text-slate-400">/100</span>
           </div>
           <span className="text-[11px] text-rose-600 font-semibold mt-1 block">
             Level: {overallRisk}
@@ -114,81 +146,121 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         <div
           onClick={() =>
             onInspectMetric?.({
-              title: 'Rolling 24 h precipitation',
+              title: "Rolling 24 h precipitation",
               value: `${currentPoint.rainfallMm}`,
-              unit: 'mm',
-              status: currentPoint.rainfallMm >= 64.5 ? 'Heavy Rain' : 'Moderate',
-              statusLevel: currentPoint.rainfallMm >= 115.6 ? 'SEVERE' : currentPoint.rainfallMm >= 64.5 ? 'HIGH' : 'LOW',
-              source: isLive ? 'Open-Meteo forecast model (no rain-gauge or IMD station data)' : 'Synthetic demo data',
-              timestamp: isLive ? 'Latest model fetch' : 'Demo',
-              methodNote: 'Rolling 24 hour rainfall total compared with IMD 24-hour rainfall categories.',
-              threshold: 'IMD Heavy: >64.5 mm / Very Heavy: >115.6 mm / Extremely Heavy: >204.5 mm',
+              unit: "mm",
+              status:
+                currentPoint.rainfallMm >= 64.5 ? "Heavy Rain" : "Moderate",
+              statusLevel:
+                currentPoint.rainfallMm >= 115.6
+                  ? "SEVERE"
+                  : currentPoint.rainfallMm >= 64.5
+                    ? "HIGH"
+                    : "LOW",
+              source: isLive
+                ? "Open-Meteo forecast model (no rain-gauge or IMD station data)"
+                : "Synthetic demo data",
+              timestamp: isLive ? "Latest model fetch" : "Demo",
+              methodNote:
+                "Rolling 24 hour rainfall total compared with IMD 24-hour rainfall categories.",
+              threshold:
+                "IMD Heavy: >64.5 mm / Very Heavy: >115.6 mm / Extremely Heavy: >204.5 mm",
             })
           }
           className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs cursor-pointer hover:border-slate-300 transition"
           title="Click to view full provenance & audit"
         >
-          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Cumulative Rain</span>
+          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+            Cumulative Rain
+          </span>
           <div className="mt-1 text-2xl font-extrabold font-mono text-slate-900">
-            {currentPoint.rainfallMm}<span className="text-xs text-slate-400"> mm</span>
+            {currentPoint.rainfallMm}
+            <span className="text-xs text-slate-400"> mm</span>
           </div>
           <span className="text-[11px] text-slate-500 mt-1 block font-mono">
-            {currentPoint.rainfallMm >= 64.5 ? 'Heavy Rain (>64mm)' : 'Moderate (<64mm)'}
+            {currentPoint.rainfallMm >= 64.5
+              ? "Heavy Rain (>64mm)"
+              : "Moderate (<64mm)"}
           </span>
         </div>
 
         {/* River */}
-        {typeof currentPoint.riverLevelM === 'number' ? (
+        {typeof currentPoint.riverLevelM === "number" ? (
           <div
             onClick={() =>
               onInspectMetric?.({
-                title: 'Simulated river stage',
+                title: "Simulated river stage",
                 value: `${currentPoint.riverLevelM}`,
-                unit: 'm',
-                status: currentPoint.riverLevelM >= 5.2 ? 'Above simulated danger mark' : 'Below simulated danger mark',
-                statusLevel: currentPoint.riverLevelM >= 5.2 ? 'SEVERE' : 'MEDIUM',
-                source: 'Synthetic demo data (no gauge)',
-                timestamp: 'Demo',
-                methodNote: 'Demo Simulator value chosen to illustrate a rising river. It is not measured or modelled.',
-                threshold: 'Simulated danger mark: 5.2 m',
+                unit: "m",
+                status:
+                  (currentPoint.riverLevelM ?? 0) >= 5.2
+                    ? "Above simulated danger mark"
+                    : "Below simulated danger mark",
+                statusLevel:
+                  (currentPoint.riverLevelM ?? 0) >= 5.2 ? "SEVERE" : "MEDIUM",
+                source: "Synthetic demo data (no gauge)",
+                timestamp: "Demo",
+                methodNote:
+                  "Demo Simulator value chosen to illustrate a rising river. It is not measured or modelled.",
+                threshold: "Simulated danger mark: 5.2 m",
               })
             }
             className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs cursor-pointer hover:border-slate-300 transition"
             title="Click to view full provenance & audit"
           >
-            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">River Stage (simulated)</span>
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+              River Stage (simulated)
+            </span>
             <div className="mt-1 text-2xl font-extrabold font-mono text-cyan-700">
-              {currentPoint.riverLevelM}<span className="text-xs text-slate-400"> m</span>
+              {currentPoint.riverLevelM}
+              <span className="text-xs text-slate-400"> m</span>
             </div>
             <span className="text-[11px] text-slate-500 mt-1 block font-semibold">
-              {currentPoint.riverLevelM >= 5.2 ? 'Above simulated danger mark' : 'Below simulated danger mark'}
+              {(currentPoint.riverLevelM ?? 0) >= 5.2
+                ? "Above simulated danger mark"
+                : "Below simulated danger mark"}
             </span>
           </div>
         ) : (
           <div
             onClick={() =>
               onInspectMetric?.({
-                title: 'Modelled river discharge vs recent median',
-                value: riverFactor?.unavailable ? 'Unavailable' : riverFactor?.rawValue ?? 'Unavailable',
-                unit: '',
-                status: riverFactor?.unavailable ? 'Unavailable' : riverFactor?.thresholdText ?? 'Unavailable',
-                statusLevel: 'LOW',
-                source: 'Copernicus GloFAS via Open-Meteo Flood API (model, not a gauge)',
-                timestamp: 'Latest model fetch',
-                methodNote: 'Modelled daily discharge divided by the median of the earlier days. There is no river-stage measurement in Live mode.',
-                threshold: 'Heuristic: 1.8x recent median',
+                title: "Modelled river discharge vs recent median",
+                value: riverFactor?.unavailable
+                  ? "Unavailable"
+                  : (riverFactor?.rawValue ?? "Unavailable"),
+                unit: "",
+                status: riverFactor?.unavailable
+                  ? "Unavailable"
+                  : (riverFactor?.thresholdText ?? "Unavailable"),
+                statusLevel: "LOW",
+                source:
+                  "Copernicus GloFAS via Open-Meteo Flood API (model, not a gauge)",
+                timestamp: "Latest model fetch",
+                methodNote:
+                  "Modelled daily discharge divided by the median of the earlier days. There is no river-stage measurement in Live mode.",
+                threshold: "Heuristic: 1.8x recent median",
               })
             }
             className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs cursor-pointer hover:border-slate-300 transition"
             title="Click to view full provenance & audit"
           >
-            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">River Discharge (model)</span>
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+              River Discharge (model)
+            </span>
             <div className="mt-1 text-2xl font-extrabold font-mono text-cyan-700">
-              {riverFactor && !riverFactor.unavailable ? riverFactor.rawValue.split(' ')[0] : '—'}
-              <span className="text-xs text-slate-400"> {riverFactor && !riverFactor.unavailable ? 'x median' : ''}</span>
+              {riverFactor && !riverFactor.unavailable
+                ? riverFactor.rawValue.split(" ")[0]
+                : "—"}
+              <span className="text-xs text-slate-400">
+                {" "}
+                {riverFactor && !riverFactor.unavailable ? "x median" : ""}
+              </span>
             </div>
             <span className="text-[11px] text-slate-500 mt-1 block font-semibold">
-              {riverFactor?.unavailable ? 'Unavailable: factor excluded' : 'Modelled, not a gauge'}
+              {riverFactor?.unavailable
+                ? "Unavailable: factor excluded"
+                : "Modelled, not a gauge"}
             </span>
           </div>
         )}
@@ -197,23 +269,37 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         <div
           onClick={() =>
             onInspectMetric?.({
-              title: 'Topsoil Moisture Saturation',
+              title: "Topsoil Moisture Saturation",
               value: `${currentPoint.soilSaturationPct}`,
-              unit: '%',
-              status: currentPoint.soilSaturationPct >= 80 ? 'Near Saturation' : 'Absorptive',
-              statusLevel: currentPoint.soilSaturationPct >= 85 ? 'SEVERE' : currentPoint.soilSaturationPct >= 70 ? 'HIGH' : 'LOW',
-              source: isLive ? 'Open-Meteo land-surface model' : 'Synthetic demo data',
-              timestamp: isLive ? 'Latest model fetch' : 'Demo',
-              methodNote: 'Model topsoil moisture (0-7 cm) as a percentage of an assumed field capacity.',
-              threshold: 'Heuristic: 85% of assumed capacity',
+              unit: "%",
+              status:
+                currentPoint.soilSaturationPct >= 80
+                  ? "Near Saturation"
+                  : "Absorptive",
+              statusLevel:
+                currentPoint.soilSaturationPct >= 85
+                  ? "SEVERE"
+                  : currentPoint.soilSaturationPct >= 70
+                    ? "HIGH"
+                    : "LOW",
+              source: isLive
+                ? "Open-Meteo land-surface model"
+                : "Synthetic demo data",
+              timestamp: isLive ? "Latest model fetch" : "Demo",
+              methodNote:
+                "Model topsoil moisture (0-7 cm) as a percentage of an assumed field capacity.",
+              threshold: "Heuristic: 85% of assumed capacity",
             })
           }
           className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs cursor-pointer hover:border-slate-300 transition"
           title="Click to view full provenance & audit"
         >
-          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Soil Saturation</span>
+          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+            Soil Saturation
+          </span>
           <div className="mt-1 text-2xl font-extrabold font-mono text-emerald-700">
-            {currentPoint.soilSaturationPct}<span className="text-xs text-slate-400">%</span>
+            {currentPoint.soilSaturationPct}
+            <span className="text-xs text-slate-400">%</span>
           </div>
           <span className="text-[11px] text-amber-700 mt-1 block font-semibold">
             Heuristic limit: 85%
@@ -222,7 +308,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
         {/* Number of Alerts */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Computed Alerts</span>
+          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+            Computed Alerts
+          </span>
           <div className="mt-1 text-2xl font-extrabold font-mono text-slate-900">
             {alertsCount}
           </div>
@@ -233,9 +321,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
         {/* Affected Villages */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">High-Risk Villages</span>
+          <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+            High-Risk Villages
+          </span>
           <div className="mt-1 text-2xl font-extrabold font-mono text-red-600">
-            {affectedVillagesCount} <span className="text-xs text-slate-400">/ {villages.length}</span>
+            {affectedVillagesCount}{" "}
+            <span className="text-xs text-slate-400">/ {villages.length}</span>
           </div>
           <span className="text-[11px] text-red-600 mt-1 block font-semibold">
             At High or Severe tier
@@ -253,23 +344,29 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 Hourly Progression
               </h3>
               <p className="text-xs text-slate-500">
-                How rainfall, soil moisture and the risk score changed hour by hour
+                How rainfall, soil moisture and the risk score changed hour by
+                hour
               </p>
             </div>
           </div>
 
           <div className="space-y-3 pt-1">
             {trendHistory.map((point) => (
-              <div key={point.time} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs">
+              <div
+                key={point.time}
+                className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs"
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono font-bold text-slate-900 text-sm">{point.time}</span>
+                  <span className="font-mono font-bold text-slate-900 text-sm">
+                    {point.time}
+                  </span>
                   <span
                     className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                       point.riskScore >= 80
-                        ? 'bg-red-100 text-red-700'
+                        ? "bg-red-100 text-red-700"
                         : point.riskScore >= 50
-                        ? 'bg-orange-100 text-orange-700'
-                        : 'bg-emerald-100 text-emerald-700'
+                          ? "bg-orange-100 text-orange-700"
+                          : "bg-emerald-100 text-emerald-700"
                     }`}
                   >
                     Risk Score: {point.riskScore}/100
@@ -280,44 +377,69 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   <div>
                     <div className="flex justify-between text-[11px] text-slate-500 mb-0.5">
                       <span>Rain (24 h): {point.rainfallMm} mm</span>
-                      <span>{Math.round((point.rainfallMm / 140) * 100)}% scale</span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-slate-800"
-                        style={{ width: `${Math.min((point.rainfallMm / 140) * 100, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {typeof point.riverLevelM === 'number' && (
-                  <div>
-                    <div className="flex justify-between text-[11px] text-slate-500 mb-0.5">
-                      <span>River Level (simulated): {point.riverLevelM} m (Danger: 5.2m)</span>
-                      <span className={(point.riverLevelM as number) >= 5.2 ? 'text-red-600 font-bold' : ''}>
-                        {Math.round(((point.riverLevelM as number) / 7.0) * 100)}% depth
+                      <span>
+                        {Math.round((point.rainfallMm / 140) * 100)}% scale
                       </span>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
                       <div
-                        className={`h-full rounded-full ${(point.riverLevelM as number) >= 5.2 ? 'bg-red-600' : 'bg-cyan-600'}`}
-                        style={{ width: `${Math.min(((point.riverLevelM as number) / 7.0) * 100, 100)}%` }}
+                        className="h-full rounded-full bg-slate-800"
+                        style={{
+                          width: `${Math.min((point.rainfallMm / 140) * 100, 100)}%`,
+                        }}
                       />
                     </div>
                   </div>
 
+                  {typeof point.riverLevelM === "number" && (
+                    <div>
+                      <div className="flex justify-between text-[11px] text-slate-500 mb-0.5">
+                        <span>
+                          River Level (simulated): {point.riverLevelM} m
+                          (Danger: 5.2m)
+                        </span>
+                        <span
+                          className={
+                            (point.riverLevelM as number) >= 5.2
+                              ? "text-red-600 font-bold"
+                              : ""
+                          }
+                        >
+                          {Math.round(
+                            ((point.riverLevelM as number) / 7.0) * 100,
+                          )}
+                          % depth
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${(point.riverLevelM as number) >= 5.2 ? "bg-red-600" : "bg-cyan-600"}`}
+                          style={{
+                            width: `${Math.min(((point.riverLevelM as number) / 7.0) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
                   )}
 
                   <div>
                     <div className="flex justify-between text-[11px] text-slate-500 mb-0.5">
                       <span>Soil Saturation: {point.soilSaturationPct}%</span>
-                      <span className={point.soilSaturationPct >= 75 ? 'text-amber-700 font-bold' : ''}>
-                        {point.soilSaturationPct >= 75 ? 'High saturation' : 'Below 75%'}
+                      <span
+                        className={
+                          point.soilSaturationPct >= 75
+                            ? "text-amber-700 font-bold"
+                            : ""
+                        }
+                      >
+                        {point.soilSaturationPct >= 75
+                          ? "High saturation"
+                          : "Below 75%"}
                       </span>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
                       <div
-                        className={`h-full rounded-full ${point.soilSaturationPct >= 75 ? 'bg-amber-600' : 'bg-emerald-600'}`}
+                        className={`h-full rounded-full ${point.soilSaturationPct >= 75 ? "bg-amber-600" : "bg-emerald-600"}`}
                         style={{ width: `${point.soilSaturationPct}%` }}
                       />
                     </div>
@@ -336,27 +458,42 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 Risk Scoring Weights
               </h3>
               <p className="text-xs text-slate-500">
-                Rule-based and uncalibrated. Only the 24 h rainfall cut-offs follow IMD categories.
+                Rule-based and uncalibrated. Only the 24 h rainfall cut-offs
+                follow IMD categories.
               </p>
             </div>
 
             <div className="mt-4 space-y-3 text-xs">
               {(transparentScore?.factors ?? []).map((factor, n) => (
-                <div key={factor.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div
+                  key={factor.id}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-800">{n + 1}. {factor.name}</span>
+                    <span className="font-bold text-slate-800">
+                      {n + 1}. {factor.name}
+                    </span>
                     <span className="font-bold text-slate-900 font-mono">
-                      {factor.unavailable ? 'Excluded' : `${factor.weightPercent}% weight`}
+                      {factor.unavailable
+                        ? "Excluded"
+                        : `${factor.weightPercent}% weight`}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">{factor.description}</p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {factor.description}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 mt-4">
-            <span className="font-bold text-slate-900">Why lead times are short:</span> steep, rocky mountain catchments store little water, so heavy rain can become a flash flood within hours or less. Any lead time shown in this prototype is an uncalibrated estimate.
+            <span className="font-bold text-slate-900">
+              Why lead times are short:
+            </span>{" "}
+            steep, rocky mountain catchments store little water, so heavy rain
+            can become a flash flood within hours or less. Any lead time shown
+            in this prototype is an uncalibrated estimate.
           </div>
         </div>
       </div>
@@ -382,16 +519,24 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 <th className="py-2.5 px-3 rounded-l-md">Historical Event</th>
                 <th className="py-2.5 px-3">Catchment and Trigger</th>
                 <th className="py-2.5 px-3">In scope?</th>
-                <th className="py-2.5 px-3 rounded-r-md">Status in this prototype</th>
+                <th className="py-2.5 px-3 rounded-r-md">
+                  Status in this prototype
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {HISTORICAL_COMPARISONS.map((item, idx) => (
                 <tr key={idx} className="align-top">
-                  <td className="py-3 px-3 font-bold text-slate-900">{item.event}</td>
+                  <td className="py-3 px-3 font-bold text-slate-900">
+                    {item.event}
+                  </td>
                   <td className="py-3 px-3 text-slate-600">
-                    <div className="font-semibold text-slate-800">{item.location}</div>
-                    <div className="text-[11px] text-slate-500">{item.trigger}</div>
+                    <div className="font-semibold text-slate-800">
+                      {item.location}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      {item.trigger}
+                    </div>
                   </td>
                   <td className="py-3 px-3 text-slate-700">{item.inScope}</td>
                   <td className="py-3 px-3 text-slate-600">{item.status}</td>

@@ -1,20 +1,34 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Database, Clock, ShieldCheck, ExternalLink, Info, CheckCircle2 } from 'lucide-react';
-import { MetricInspectionData } from '../types';
+import React from "react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  X,
+  Database,
+  Clock,
+  ShieldCheck,
+  ExternalLink,
+  Info,
+  CheckCircle2,
+} from "lucide-react";
+import { MetricInspectionData } from "../types";
 
 interface MetricSourceModalProps {
   data: MetricInspectionData | null;
   onClose: () => void;
 }
 
-export const MetricSourceModal: React.FC<MetricSourceModalProps> = ({ data, onClose }) => {
+export const MetricSourceModal: React.FC<MetricSourceModalProps> = ({
+  data,
+  onClose,
+}) => {
   if (!data) return null;
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
         <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Metric source details"
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -31,11 +45,14 @@ export const MetricSourceModal: React.FC<MetricSourceModalProps> = ({ data, onCl
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
                   DATA PROVENANCE & AUDIT LOG
                 </span>
-                <h3 className="text-sm font-extrabold text-slate-900">{data.title}</h3>
+                <h3 className="text-sm font-extrabold text-slate-900">
+                  {data.title}
+                </h3>
               </div>
             </div>
             <button
               onClick={onClose}
+              aria-label="Close dialog"
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition cursor-pointer"
             >
               <X className="h-5 w-5" />
@@ -51,7 +68,10 @@ export const MetricSourceModal: React.FC<MetricSourceModalProps> = ({ data, onCl
                   OBSERVED METRIC
                 </span>
                 <div className="text-2xl font-black font-mono text-slate-900 mt-0.5">
-                  {data.value} <span className="text-xs text-slate-500 font-normal">{data.unit}</span>
+                  {data.value}{" "}
+                  <span className="text-xs text-slate-500 font-normal">
+                    {data.unit}
+                  </span>
                 </div>
               </div>
 
@@ -73,7 +93,9 @@ export const MetricSourceModal: React.FC<MetricSourceModalProps> = ({ data, onCl
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
                     AUTHORITATIVE SOURCE
                   </span>
-                  <div className="font-bold text-slate-900 text-sm">{data.source}</div>
+                  <div className="font-bold text-slate-900 text-sm">
+                    {data.source}
+                  </div>
                 </div>
               </div>
 
@@ -83,7 +105,9 @@ export const MetricSourceModal: React.FC<MetricSourceModalProps> = ({ data, onCl
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
                     TIMESTAMP & DATA FRESHNESS
                   </span>
-                  <div className="font-mono font-bold text-slate-900">{data.timestamp}</div>
+                  <div className="font-mono font-bold text-slate-900">
+                    {data.timestamp}
+                  </div>
                 </div>
               </div>
 
@@ -93,7 +117,9 @@ export const MetricSourceModal: React.FC<MetricSourceModalProps> = ({ data, onCl
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
                     OPERATIONAL THRESHOLD
                   </span>
-                  <div className="font-semibold text-slate-800">{data.threshold}</div>
+                  <div className="font-semibold text-slate-800">
+                    {data.threshold}
+                  </div>
                 </div>
               </div>
             </div>

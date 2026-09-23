@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import {
   ShieldAlert,
   Bell,
@@ -21,20 +21,22 @@ import {
   Settings,
   Sparkles,
   RefreshCw,
-  Globe
-} from 'lucide-react';
-import { RiskLevel, AppMode } from '../types';
+  Globe,
+} from "lucide-react";
+import { RiskLevel, AppMode } from "../types";
 
 interface NavbarProps {
-  currentTab: 'dashboard' | 'map' | 'alerts' | 'analytics' | 'about' | 'replay';
-  onTabChange: (tab: 'dashboard' | 'map' | 'alerts' | 'analytics' | 'about' | 'replay') => void;
+  currentTab: "dashboard" | "map" | "alerts" | "analytics" | "about" | "replay";
+  onTabChange: (
+    tab: "dashboard" | "map" | "alerts" | "analytics" | "about" | "replay",
+  ) => void;
   overallRisk: RiskLevel;
   /** True when Live mode has no data: the risk pill shows "No data" instead of a tier. */
   riskUnknown?: boolean;
   activeAlertsCount: number;
   appMode: AppMode;
   onModeToggle: (mode: AppMode) => void;
-  liveDataStatus?: 'loading' | 'success' | 'cached' | 'error';
+  liveDataStatus?: "loading" | "success" | "cached" | "error";
   onOpenConfigModal?: () => void;
 }
 
@@ -46,22 +48,30 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeAlertsCount,
   appMode,
   onModeToggle,
-  liveDataStatus = 'success',
+  liveDataStatus = "success",
   onOpenConfigModal,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [timeState, setTimeState] = useState({
-    utc: new Date().toISOString().substring(11, 19) + ' UTC',
-    ist: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
+    utc: new Date().toISOString().substring(11, 19) + " UTC",
+    ist:
+      new Date().toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour12: false,
+      }) + " IST",
   });
 
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
       setTimeState({
-        utc: now.toISOString().substring(11, 19) + ' UTC',
-        ist: now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
+        utc: now.toISOString().substring(11, 19) + " UTC",
+        ist:
+          now.toLocaleTimeString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            hour12: false,
+          }) + " IST",
       });
     }, 1000);
     return () => clearInterval(timer);
@@ -70,40 +80,40 @@ export const Navbar: React.FC<NavbarProps> = ({
   const getRiskIndicator = () => {
     if (riskUnknown) {
       return {
-        dot: 'bg-slate-400',
-        label: 'No data',
-        badge: 'bg-slate-50 text-slate-600 border-slate-200',
-        pulse: 'bg-slate-300',
+        dot: "bg-slate-400",
+        label: "No data",
+        badge: "bg-slate-50 text-slate-600 border-slate-200",
+        pulse: "bg-slate-300",
       };
     }
     switch (overallRisk) {
-      case 'SEVERE':
+      case "SEVERE":
         return {
-          dot: 'bg-red-500',
-          label: 'Severe',
-          badge: 'bg-red-50 text-red-700 border-red-200',
-          pulse: 'bg-red-400',
+          dot: "bg-red-500",
+          label: "Severe",
+          badge: "bg-red-50 text-red-700 border-red-200",
+          pulse: "bg-red-400",
         };
-      case 'HIGH':
+      case "HIGH":
         return {
-          dot: 'bg-orange-500',
-          label: 'High Watch',
-          badge: 'bg-orange-50 text-orange-700 border-orange-200',
-          pulse: 'bg-orange-400',
+          dot: "bg-orange-500",
+          label: "High Watch",
+          badge: "bg-orange-50 text-orange-700 border-orange-200",
+          pulse: "bg-orange-400",
         };
-      case 'MEDIUM':
+      case "MEDIUM":
         return {
-          dot: 'bg-amber-500',
-          label: 'Advisory',
-          badge: 'bg-amber-50 text-amber-700 border-amber-200',
-          pulse: 'bg-amber-400',
+          dot: "bg-amber-500",
+          label: "Advisory",
+          badge: "bg-amber-50 text-amber-700 border-amber-200",
+          pulse: "bg-amber-400",
         };
       default:
         return {
-          dot: 'bg-emerald-500',
-          label: 'Nominal',
-          badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-          pulse: 'bg-emerald-400',
+          dot: "bg-emerald-500",
+          label: "Nominal",
+          badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+          pulse: "bg-emerald-400",
         };
     }
   };
@@ -112,59 +122,59 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   // Navigation Items
   const operationalGroup: Array<{
-    id: 'dashboard' | 'map' | 'alerts';
+    id: "dashboard" | "map" | "alerts";
     label: string;
     icon: React.ComponentType<{ className?: string }>;
     hasBadge?: boolean;
   }> = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'map', label: 'Risk Map', icon: Map },
-    { id: 'alerts', label: 'Alerts', icon: Radio, hasBadge: true },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "map", label: "Risk Map", icon: Map },
+    { id: "alerts", label: "Alerts", icon: Radio, hasBadge: true },
   ];
 
   const intelligenceGroup: Array<{
-    id: 'analytics' | 'replay' | 'about';
+    id: "analytics" | "replay" | "about";
     label: string;
     icon: React.ComponentType<{ className?: string }>;
   }> = [
-    { id: 'analytics', label: 'Analytics', icon: LineChart },
-    { id: 'replay', label: 'Event Replay', icon: History },
-    { id: 'about', label: 'Architecture', icon: Info },
+    { id: "analytics", label: "Analytics", icon: LineChart },
+    { id: "replay", label: "Event Replay", icon: History },
+    { id: "about", label: "Architecture", icon: Info },
   ];
 
   const getModeBadge = () => {
-    if (appMode === 'LIVE') {
-      if (liveDataStatus === 'loading') {
+    if (appMode === "LIVE") {
+      if (liveDataStatus === "loading") {
         return {
-          text: 'CONNECTING OPEN-METEO...',
-          class: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
-          dot: 'bg-cyan-400 animate-pulse',
+          text: "CONNECTING OPEN-METEO...",
+          class: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
+          dot: "bg-cyan-400 animate-pulse",
         };
       }
-      if (liveDataStatus === 'error') {
+      if (liveDataStatus === "error") {
         return {
-          text: 'LIVE: NO DATA',
-          class: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
-          dot: 'bg-slate-400',
+          text: "LIVE: NO DATA",
+          class: "bg-slate-500/20 text-slate-300 border-slate-500/40",
+          dot: "bg-slate-400",
         };
       }
-      if (liveDataStatus === 'cached') {
+      if (liveDataStatus === "cached") {
         return {
-          text: 'LIVE (CACHED)',
-          class: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-          dot: 'bg-amber-400',
+          text: "LIVE (CACHED)",
+          class: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+          dot: "bg-amber-400",
         };
       }
       return {
-        text: 'LIVE (OPEN-METEO MODEL DATA)',
-        class: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-        dot: 'bg-emerald-400 animate-ping',
+        text: "LIVE (OPEN-METEO MODEL DATA)",
+        class: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+        dot: "bg-emerald-400 animate-ping",
       };
     }
     return {
-      text: 'DEMO SIMULATOR',
-      class: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
-      dot: 'bg-purple-400',
+      text: "DEMO SIMULATOR",
+      class: "bg-purple-500/20 text-purple-300 border-purple-500/40",
+      dot: "bg-purple-400",
     };
   };
 
@@ -204,10 +214,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-3 text-slate-300">
             <span className="flex items-center gap-1.5 text-slate-300">
               <Clock className="h-3 w-3 text-emerald-400" />
-              <span className="text-white font-semibold tabular-nums tracking-wide">{timeState.utc}</span>
+              <span className="text-white font-semibold tabular-nums tracking-wide">
+                {timeState.utc}
+              </span>
             </span>
             <span className="text-slate-700">•</span>
-            <span className="text-slate-400 tabular-nums">IST {timeState.ist.replace(' IST', '')}</span>
+            <span className="text-slate-400 tabular-nums">
+              IST {timeState.ist.replace(" IST", "")}
+            </span>
           </div>
         </div>
       </div>
@@ -216,7 +230,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Brand & Identity */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => onTabChange('dashboard')}
+            onClick={() => onTabChange("dashboard")}
             className="flex items-center gap-2.5 text-left transition-opacity hover:opacity-90 focus:outline-hidden cursor-pointer"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white shadow-xs">
@@ -245,17 +259,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
                   className={`relative flex items-center gap-1.5 px-3 py-1.5 font-semibold rounded-lg transition-colors cursor-pointer ${
-                    isActive ? 'text-white' : 'text-slate-600 hover:text-slate-900'
+                    isActive
+                      ? "text-white"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="activeNavTab"
                       className="absolute inset-0 rounded-lg bg-slate-900 shadow-xs"
-                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 450,
+                        damping: 35,
+                      }}
                     />
                   )}
-                  <Icon className={`relative z-10 h-3.5 w-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <Icon
+                    className={`relative z-10 h-3.5 w-3.5 ${isActive ? "text-white" : "text-slate-500"}`}
+                  />
                   <span className="relative z-10">{item.label}</span>
                   {item.hasBadge && activeAlertsCount > 0 && (
                     <span className="relative z-10 ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white leading-none">
@@ -280,17 +302,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
                   className={`relative flex items-center gap-1.5 px-3 py-1.5 font-semibold rounded-lg transition-colors cursor-pointer ${
-                    isActive ? 'text-white' : 'text-slate-600 hover:text-slate-900'
+                    isActive
+                      ? "text-white"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="activeNavTab"
                       className="absolute inset-0 rounded-lg bg-slate-900 shadow-xs"
-                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 450,
+                        damping: 35,
+                      }}
                     />
                   )}
-                  <Icon className={`relative z-10 h-3.5 w-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <Icon
+                    className={`relative z-10 h-3.5 w-3.5 ${isActive ? "text-white" : "text-slate-500"}`}
+                  />
                   <span className="relative z-10">{item.label}</span>
                 </button>
               );
@@ -300,35 +330,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Minimalist Right Controls */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* TASK 1: MODE SWITCHER (Live Open-Meteo vs Demo Simulator) */}
-          <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200 text-xs">
-            <button
-              onClick={() => onModeToggle('LIVE')}
-              className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
-                appMode === 'LIVE'
-                  ? 'bg-emerald-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="Switch to Live Open-Meteo real weather data"
-            >
-              <Globe className="h-3 w-3" />
-              <span className="hidden sm:inline">Live</span>
-            </button>
-
-            <button
-              onClick={() => onModeToggle('DEMO')}
-              className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
-                appMode === 'DEMO'
-                  ? 'bg-purple-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="Switch to Demo Simulator scenarios"
-            >
-              <Sparkles className="h-3 w-3" />
-              <span className="hidden sm:inline">Demo</span>
-            </button>
-          </div>
-
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800">
+            <Globe className="h-3.5 w-3.5" /> LIVE ONLY
+          </span>
           {/* Settings / Config Button */}
           {onOpenConfigModal && (
             <button
@@ -346,8 +350,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${riskStatus.badge}`}
           >
             <span className="relative flex h-2 w-2">
-              <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${riskStatus.pulse}`} />
-              <span className={`relative inline-flex h-2 w-2 rounded-full ${riskStatus.dot}`} />
+              <span
+                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${riskStatus.pulse}`}
+              />
+              <span
+                className={`relative inline-flex h-2 w-2 rounded-full ${riskStatus.dot}`}
+              />
             </span>
             <span className="text-[11px] font-bold tracking-tight uppercase">
               {riskStatus.label}
@@ -372,9 +380,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Notification Flyout */}
             {notificationsOpen && (
-              <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xl z-50 text-slate-800">
+              <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3.5 shadow-xl z-50 text-slate-800">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                  <span className="text-xs font-bold text-slate-900">Computed Alerts</span>
+                  <span className="text-xs font-bold text-slate-900">
+                    Computed Alerts
+                  </span>
                   <span className="rounded bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600 border border-red-100">
                     {activeAlertsCount} Active
                   </span>
@@ -385,18 +395,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="flex items-center gap-1.5 text-slate-800 font-bold">
                       <span>
                         {riskUnknown
-                          ? 'No data'
-                          : overallRisk === 'SEVERE'
-                          ? 'Severe tier: computed'
-                          : overallRisk === 'HIGH'
-                          ? 'High tier: computed'
-                          : overallRisk === 'MEDIUM'
-                          ? 'Medium tier: computed'
-                          : 'Low tier: nominal'}
+                          ? "No data"
+                          : overallRisk === "SEVERE"
+                            ? "Severe tier: computed"
+                            : overallRisk === "HIGH"
+                              ? "High tier: computed"
+                              : overallRisk === "MEDIUM"
+                                ? "Medium tier: computed"
+                                : "Low tier: nominal"}
                       </span>
                     </div>
                     <p className="mt-1 text-[11px] text-slate-700 leading-snug">
-                      Alerts shown here are computed on screen. This prototype does not dispatch anything to phones, sirens or authorities.
+                      Alerts shown here are computed on screen. This prototype
+                      does not dispatch anything to phones, sirens or
+                      authorities.
                     </p>
                   </div>
                 </div>
@@ -404,7 +416,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={() => {
                     setNotificationsOpen(false);
-                    onTabChange('alerts');
+                    onTabChange("alerts");
                   }}
                   className="mt-3 w-full rounded-lg bg-slate-900 py-1.5 text-center text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer"
                 >
@@ -420,7 +432,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
             aria-label="Toggle navigation menu"
           >
-            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {mobileMenuOpen ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <Menu className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>
@@ -428,29 +444,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-3">
-          {/* Mobile Mode Switcher */}
-          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200">
-            <span className="text-xs font-bold text-slate-700">Operating Mode:</span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => onModeToggle('LIVE')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                  appMode === 'LIVE' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-700 border border-slate-200'
-                }`}
-              >
-                Live (Open-Meteo)
-              </button>
-              <button
-                onClick={() => onModeToggle('DEMO')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                  appMode === 'DEMO' ? 'bg-purple-600 text-white' : 'bg-white text-slate-700 border border-slate-200'
-                }`}
-              >
-                Demo Simulator
-              </button>
-            </div>
-          </div>
-
           {/* Operational Group */}
           <div>
             <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
@@ -468,7 +461,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                       setMobileMenuOpen(false);
                     }}
                     className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold ${
-                      isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+                      isActive
+                        ? "bg-slate-900 text-white"
+                        : "text-slate-700 hover:bg-slate-100"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -503,7 +498,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                       setMobileMenuOpen(false);
                     }}
                     className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${
-                      isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+                      isActive
+                        ? "bg-slate-900 text-white"
+                        : "text-slate-700 hover:bg-slate-100"
                     }`}
                   >
                     <Icon className="h-4 w-4" />

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   X,
   Sliders,
@@ -11,9 +11,9 @@ import {
   Info,
   Scale,
   Activity,
-  Layers
-} from 'lucide-react';
-import { TransparentRiskScore, RiskFactorItem } from '../types';
+  Layers,
+} from "lucide-react";
+import { TransparentRiskScore, RiskFactorItem } from "../types";
 
 interface WhyThisScoreModalProps {
   scoreData: TransparentRiskScore;
@@ -32,27 +32,27 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
 
   const getTierBadge = (tier: string) => {
     switch (tier) {
-      case 'SEVERE':
-        return 'bg-red-50 text-red-700 border-red-200';
-      case 'HIGH':
-        return 'bg-orange-50 text-orange-700 border-orange-200';
-      case 'MEDIUM':
-        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case "SEVERE":
+        return "bg-red-50 text-red-700 border-red-200";
+      case "HIGH":
+        return "bg-orange-50 text-orange-700 border-orange-200";
+      case "MEDIUM":
+        return "bg-amber-50 text-amber-800 border-amber-200";
       default:
-        return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+        return "bg-emerald-50 text-emerald-800 border-emerald-200";
     }
   };
 
   const getBarColor = (color: string) => {
     switch (color) {
-      case 'red':
-        return 'bg-red-500';
-      case 'orange':
-        return 'bg-orange-500';
-      case 'amber':
-        return 'bg-amber-500';
+      case "red":
+        return "bg-red-500";
+      case "orange":
+        return "bg-orange-500";
+      case "amber":
+        return "bg-amber-500";
       default:
-        return 'bg-emerald-500';
+        return "bg-emerald-500";
     }
   };
 
@@ -60,6 +60,9 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
         <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Risk score explanation"
           initial={{ opacity: 0, scale: 0.96, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -83,6 +86,7 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
             </div>
             <button
               onClick={onClose}
+              aria-label="Close dialog"
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition cursor-pointer"
             >
               <X className="h-5 w-5" />
@@ -99,7 +103,7 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                   </span>
                   <span
                     className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase font-mono ${getTierBadge(
-                      scoreData.riskLevel
+                      scoreData.riskLevel,
                     )}`}
                   >
                     {scoreData.riskLevel} TIER
@@ -109,10 +113,15 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                   <span className="text-4xl font-black font-mono tracking-tight text-slate-900">
                     {scoreData.totalScore}
                   </span>
-                  <span className="text-sm font-semibold text-slate-500">/ 100 max</span>
+                  <span className="text-sm font-semibold text-slate-500">
+                    / 100 max
+                  </span>
                 </div>
                 <div className="mt-2 text-[11px] text-slate-600">
-                  Calculated from {scoreData.factors.filter((f) => !f.unavailable).length} weighted factors. Rule-based and uncalibrated; only the 24 h rainfall cut-offs follow IMD categories.
+                  Calculated from{" "}
+                  {scoreData.factors.filter((f) => !f.unavailable).length}{" "}
+                  weighted factors. Rule-based and uncalibrated; only the 24 h
+                  rainfall cut-offs follow IMD categories.
                 </div>
               </div>
 
@@ -128,9 +137,12 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                 </div>
                 <div className="mt-2 flex items-baseline gap-1.5">
                   <span className="text-3xl font-black font-mono tracking-tight text-slate-900">
-                    {scoreData.signalAgreement.activeSignals} / {scoreData.signalAgreement.totalSignals}
+                    {scoreData.signalAgreement.activeSignals} /{" "}
+                    {scoreData.signalAgreement.totalSignals}
                   </span>
-                  <span className="text-xs font-semibold text-slate-500">Indicators above watch level</span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    Indicators above watch level
+                  </span>
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono text-emerald-700 font-semibold">
                   <Activity className="h-3.5 w-3.5" />
@@ -153,7 +165,12 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
 
               <div className="space-y-4">
                 {scoreData.factors.map((factor) => {
-                  const percentOfFactor = factor.maxPoints > 0 ? Math.round((factor.contributionPoints / factor.maxPoints) * 100) : 0;
+                  const percentOfFactor =
+                    factor.maxPoints > 0
+                      ? Math.round(
+                          (factor.contributionPoints / factor.maxPoints) * 100,
+                        )
+                      : 0;
 
                   return (
                     <div
@@ -163,21 +180,33 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-slate-900 text-xs">{factor.name}</h4>
+                            <h4 className="font-bold text-slate-900 text-xs">
+                              {factor.name}
+                            </h4>
                             <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-600 border border-slate-200">
-                              {factor.unavailable ? 'Excluded' : `Weight: ${factor.weightPercent}%`}
+                              {factor.unavailable
+                                ? "Excluded"
+                                : `Weight: ${factor.weightPercent}%`}
                             </span>
                           </div>
                           <span className="text-[11px] text-slate-500 mt-0.5 block">
-                            Observed: <strong className="font-mono text-slate-800">{factor.rawValue}</strong>
+                            Observed:{" "}
+                            <strong className="font-mono text-slate-800">
+                              {factor.rawValue}
+                            </strong>
                           </span>
                         </div>
 
                         <div className="text-left sm:text-right font-mono">
                           <span className="text-base font-black text-slate-900">
-                            {factor.unavailable ? '-' : `+${factor.contributionPoints}`}
+                            {factor.unavailable
+                              ? "-"
+                              : `+${factor.contributionPoints}`}
                           </span>
-                          <span className="text-slate-400 font-medium"> / {factor.maxPoints} pts</span>
+                          <span className="text-slate-400 font-medium">
+                            {" "}
+                            / {factor.maxPoints} pts
+                          </span>
                         </div>
                       </div>
 
@@ -187,17 +216,26 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${percentOfFactor}%` }}
-                            transition={{ duration: 0.5, ease: 'easeOut' }}
+                            transition={{ duration: 0.5, ease: "easeOut" }}
                             className={`h-full rounded-full ${getBarColor(factor.statusColor)}`}
                           />
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-slate-500">
-                          <span>Threshold: <strong className="text-slate-700">{factor.thresholdText}</strong></span>
+                          <span>
+                            Threshold:{" "}
+                            <strong className="text-slate-700">
+                              {factor.thresholdText}
+                            </strong>
+                          </span>
                           <span>
                             {factor.isWatchExceeded ? (
-                              <span className="text-red-600 font-bold font-mono">▲ Exceeded Watch</span>
+                              <span className="text-red-600 font-bold font-mono">
+                                ▲ Exceeded Watch
+                              </span>
                             ) : (
-                              <span className="text-emerald-600 font-semibold font-mono">● Within Nominal</span>
+                              <span className="text-emerald-600 font-semibold font-mono">
+                                ● Within Nominal
+                              </span>
                             )}
                           </span>
                         </div>
@@ -233,21 +271,36 @@ export const WhyThisScoreModal: React.FC<WhyThisScoreModalProps> = ({
                 {showMethodNote && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
+                    animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     className="px-4 pb-4 text-[11px] text-slate-600 leading-relaxed border-t border-slate-200/80 pt-3 space-y-2"
                   >
                     <p>
-                      <strong>Rule-based engine, not a validated forecast model:</strong> the same inputs always give the same score. The 24 h rainfall total is compared with India Meteorological Department (IMD) rainfall categories:
+                      <strong>
+                        Rule-based engine, not a validated forecast model:
+                      </strong>{" "}
+                      the same inputs always give the same score. The 24 h
+                      rainfall total is compared with India Meteorological
+                      Department (IMD) rainfall categories:
                     </p>
                     <ul className="list-disc list-inside space-y-1 font-mono text-[10px] text-slate-700 pl-1">
                       <li>Moderate: 15.6 – 64.4 mm / 24h</li>
                       <li>Heavy: 64.5 – 115.5 mm / 24h (Advisory Trigger)</li>
                       <li>Very Heavy: 115.6 – 204.4 mm / 24h (High Warning)</li>
-                      <li>Extremely Heavy: ≥ 204.5 mm / 24h (Severe Flash Flood Alert)</li>
+                      <li>
+                        Extremely Heavy: ≥ 204.5 mm / 24h (Severe Flash Flood
+                        Alert)
+                      </li>
                     </ul>
                     <p>
-                      <strong>What is not IMD:</strong> the 1 h and 3 h rainfall triggers, the 72 h antecedent cut-offs, the soil cut-offs, the discharge-ratio cut-offs and the weights are HydroGuard heuristics. The soil factor divides model moisture by an assumed field capacity. The indicators are all rain-driven, so they are correlated. Before any real deployment they must be calibrated against gauge records from USDMA, CWC and IMD.
+                      <strong>What is not IMD:</strong> the 1 h and 3 h rainfall
+                      triggers, the 72 h antecedent cut-offs, the soil cut-offs,
+                      the discharge-ratio cut-offs and the weights are
+                      HydroGuard heuristics. The soil factor divides model
+                      moisture by an assumed field capacity. The indicators are
+                      all rain-driven, so they are correlated. Before any real
+                      deployment they must be calibrated against gauge records
+                      from USDMA, CWC and IMD.
                     </p>
                   </motion.div>
                 )}
