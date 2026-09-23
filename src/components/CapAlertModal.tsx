@@ -225,7 +225,7 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
           <div className="border-t border-slate-100 bg-slate-50 px-6 py-3.5 flex justify-end">
             <button
               onClick={onClose}
-              aria-label="Close CAP export"
+              aria-label="Dismiss CAP preview"
               className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-bold text-white hover:bg-slate-800 transition cursor-pointer"
             >
               Close Alert Preview
