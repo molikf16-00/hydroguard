@@ -1,12 +1,13 @@
-# HydroGuard 2.0
+# HydroGuard — Original Design, Live Upgrade
 
-A redesigned **live-data-only** catchment intelligence workspace for the Rishi Ganga valley in Uttarakhand. React + TypeScript + Vite, with an optional persistent Node/Express collector.
+The original HydroGuard interface upgraded into a **live-data-only** catchment intelligence workspace for the Rishi Ganga valley in Uttarakhand. React + TypeScript + Vite, with an optional persistent Node/Express collector.
 
 ## What is included
 
 - Live Open-Meteo rainfall and topsoil moisture; daily GloFAS river discharge when available.
 - Explainable per-village risk scores, current input provenance, timestamped snapshots and trend inspection.
-- Geographic OpenStreetMap with village selection, search, responsive navigation and keyboard-accessible controls.
+- Original top navigation, risk hero, telemetry cards, schematic map and trend chart retained with focused professional polish.
+- Optional geographic OpenStreetMap alongside the original schematic, village search, source details and exercise-only CAP XML export.
 - Historical ERA5 replay in a separate archive view, including three days of warm-up data.
 - Optional server collection every ten minutes, deduplicated requests, atomic snapshot writes and seven-day bounded retention.
 - Strict TypeScript, dependency lockfile, data-integrity tests and GitHub Actions browser checks.

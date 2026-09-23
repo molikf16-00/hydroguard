@@ -1,1060 +1,825 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useEffect, useState } from "react";
 import {
   Activity,
   ArrowDownToLine,
   ArrowRight,
-  ArrowUpRight,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  CircleHelp,
-  CloudRain,
+  CheckCircle2,
+  Clock,
+  Compass,
   Database,
-  Droplets,
-  ExternalLink,
-  FileText,
-  History,
-  Layers,
-  LayoutDashboard,
-  Leaf,
   MapPin,
-  Menu,
   Radio,
   RefreshCw,
   Search,
   ShieldCheck,
-  Signal,
-  Waves,
   WifiOff,
-  X,
 } from "lucide-react";
+import { Navbar } from "./components/Navbar";
+import { MainRiskCard } from "./components/MainRiskCard";
+import { MultiSourceCards } from "./components/MultiSourceCards";
+import { RiskMap } from "./components/RiskMap";
+import { RiskTrendChart } from "./components/RiskTrendChart";
+
+import { WhyThisScoreModal } from "./components/WhyThisScoreModal";
+import { MetricSourceModal } from "./components/MetricSourceModal";
+import { CapAlertModal } from "./components/CapAlertModal";
+import { Footer } from "./components/Footer";
+
 import { useLiveCatchment } from "./hooks/useLiveCatchment";
-import { LiveMap, tierColors } from "./components/LiveMap";
-import { LiveTrend } from "./components/LiveTrend";
 import { DEFAULT_CATCHMENT_CONFIG } from "./config/catchmentConfig";
-import type { SourceMetric, TransparentRiskScore } from "./types";
+import type {
+  MetricInspectionData,
+  VillageData,
+  TransparentRiskScore,
+} from "./types";
+const AnalyticsView = lazy(() =>
+  import("./components/AnalyticsView").then((m) => ({
+    default: m.AnalyticsView,
+  })),
+);
+const LiveMap = lazy(() =>
+  import("./components/LiveMap").then((m) => ({ default: m.LiveMap })),
+);
 const EventReplay = lazy(() =>
   import("./components/EventReplayView").then((m) => ({
     default: m.EventReplayView,
   })),
 );
-type Tab = "overview" | "villages" | "sources" | "replay" | "method";
-const NAV = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "villages", label: "Village monitor", icon: MapPin },
-  { id: "sources", label: "Data sources", icon: Database },
-  { id: "replay", label: "Historical replay", icon: History },
-  { id: "method", label: "Methodology", icon: Layers },
-] as const;
-const shortName = (name: string) => name.split(" (")[0];
-const formatTime = (iso?: string) =>
-  iso
-    ? new Date(iso).toLocaleString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Asia/Kolkata",
-      }) + " IST"
-    : "Awaiting data";
-
-function MetricCard({
-  metric,
-  label,
-  icon: Icon,
-}: {
-  metric?: SourceMetric;
-  label: string;
-  icon: typeof CloudRain;
-}) {
-  return (
-    <article className="metric-card">
-      <div className="metric-heading">
-        <span>{label}</span>
-        <Icon size={17} />
-      </div>
-      <div className="metric-value">
-        {!metric || metric.unavailable ? "—" : metric.value}
-        <small>
-          {metric && !metric.unavailable ? metric.unit : "Awaiting source"}
-        </small>
-      </div>
-      <div className="metric-bottom">
-        <span
-          className={`status-dot ${metric && !metric.unavailable ? "ready" : ""}`}
-        />
-        {metric?.unavailable
-          ? "Source unavailable"
-          : metric
-            ? metric.status
-            : "No measurement"}
-      </div>
-    </article>
-  );
-}
-function ScoreBreakdown({ score }: { score?: TransparentRiskScore }) {
-  return (
-    <div className="factor-list">
-      {score ? (
-        score.factors.map((f) => (
-          <div className="factor" key={f.id}>
-            <div>
-              <span>{f.name.split(" (")[0]}</span>
-              <strong>
-                {f.unavailable
-                  ? "Unavailable"
-                  : `${f.contributionPoints} / ${f.maxPoints}`}
-              </strong>
-            </div>
-            <div className="factor-track">
-              <span
-                style={{
-                  width: `${f.maxPoints ? (f.contributionPoints / f.maxPoints) * 100 : 0}%`,
-                }}
-              />
-            </div>
-            <small>{f.rawValue}</small>
-          </div>
-        ))
-      ) : (
-        <div className="quiet-empty">
-          Factors appear when the required inputs are complete.
-        </div>
-      )}
-    </div>
-  );
-}
+type Tab = "dashboard" | "map" | "alerts" | "analytics" | "about" | "replay";
+const positions = [
+  { xPercent: 34, yPercent: 44 },
+  { xPercent: 48, yPercent: 52 },
+  { xPercent: 78, yPercent: 32 },
+  { xPercent: 62, yPercent: 60 },
+  { xPercent: 88, yPercent: 78 },
+];
+const panel = "rounded-2xl border border-slate-200 bg-white p-5 shadow-xs";
+const button =
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed";
+const dateText = (iso: string) =>
+  new Date(iso).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  }) + " IST";
 
 export default function App() {
+  const [currentTab, setCurrentTab] = useState<Tab>("dashboard");
   const { data, loading, error, refresh, age } = useLiveCatchment();
-  const [tab, setTab] = useState<Tab>("overview");
-  const [selected, setSelected] = useState(
+  const [selectedVillage, setSelectedVillage] = useState(
     DEFAULT_CATCHMENT_CONFIG.villages[0].id,
   );
+  const [scoreId, setScoreId] = useState<string | null>(null);
+  const [inspectMetric, setInspectMetric] =
+    useState<MetricInspectionData | null>(null);
+  const [capVillage, setCapVillage] = useState<VillageData | null>(null);
+  const [mapMode, setMapMode] = useState<"schematic" | "geographic">(
+    "schematic",
+  );
   const [search, setSearch] = useState("");
-  const [mobileNav, setMobileNav] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [scoreOpen, setScoreOpen] = useState(false);
-  const [readOnlyReport, setReadOnlyReport] = useState(false);
-  useEffect(() => {
-    if (!scoreOpen && !readOnlyReport) return;
-    const opener = document.activeElement as HTMLElement | null;
-    const trap = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") return;
-      const elements = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          ".dialog button, .dialog a, .dialog input, .dialog select",
-        ),
-      );
-      const first = elements[0],
-        last = elements[elements.length - 1];
-      if (!first) return;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", trap);
-    return () => {
-      document.removeEventListener("keydown", trap);
-      opener?.focus();
-    };
-  }, [scoreOpen, readOnlyReport]);
+  const [toast, setToast] = useState("");
+  const cached = !!data && (data.isCached || age >= 15);
+  const status =
+    loading && !data
+      ? "loading"
+      : !data
+        ? "error"
+        : cached
+          ? "cached"
+          : "success";
+  const overall = data?.riskScore.riskLevel ?? "LOW";
   const villages = data?.villages ?? [];
-  const village = villages.find((v) => v.id === selected);
-  const configVillage = DEFAULT_CATCHMENT_CONFIG.villages.find(
-    (v) => v.id === selected,
-  )!;
-  const score = data?.riskScore;
-  const watchCount = villages.filter(
+  const mapVillages = villages.map((v, i) => ({
+    ...v,
+    coordinates: positions[i] ?? { xPercent: 50, yPercent: 50 },
+  }));
+  const score: TransparentRiskScore | undefined =
+    scoreId === "catchment"
+      ? data?.riskScore
+      : scoreId
+        ? data?.villageScores[scoreId]
+        : undefined;
+  const flagged = villages.filter(
     (v) => v.riskLevel === "HIGH" || v.riskLevel === "SEVERE",
-  ).length;
-  const selectedScore = data?.villageScores[selected];
+  );
   const filtered = villages.filter((v) =>
     v.name.toLowerCase().includes(search.toLowerCase()),
   );
-  const selectedTitle = NAV.find((n) => n.id === tab)?.label ?? "Overview";
-  const sourceMetrics = data
-    ? [
-        data.metrics.rainfall,
-        data.metrics.soilMoisture,
-        data.metrics.riverLevel,
-      ]
-    : [];
-  const sourcesReady = (data ? 1 : 0) + (data && !data.metrics.riverLevel.unavailable ? 1 : 0);
-  const signalLabel = data
-    ? data.isCached || age >= 15
-      ? `Cached · ${age}m old`
-      : "Live model data"
-    : loading
-      ? "Connecting to sources"
-      : "Sources unavailable";
-  const selectedTier = village?.riskLevel;
-  const setView = (id: Tab) => {
-    setTab(id);
-    setMobileNav(false);
-  };
+  const gate = !data && !["about", "replay"].includes(currentTab);
   useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(""), 4500);
-    return () => clearTimeout(t);
-  }, [notice]);
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(""), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
   useEffect(() => {
-    const close = (e: KeyboardEvent) => {
+    if (!scoreId && !inspectMetric && !capVillage) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setScoreOpen(false);
-        setReadOnlyReport(false);
-        setMobileNav(false);
+        setScoreId(null);
+        setInspectMetric(null);
+        setCapVillage(null);
+      }
+      if (e.key === "Tab") {
+        const items = Array.from(
+          document.querySelectorAll<HTMLElement>(
+            '[role="dialog"] button,[role="dialog"] a,[role="dialog"] input',
+          ),
+        );
+        const first = items[0],
+          last = items[items.length - 1];
+        if (first && e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (first && !e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, []);
+    const timer = setTimeout(
+      () =>
+        document.querySelector<HTMLElement>('[role="dialog"] button')?.focus(),
+      50,
+    );
+    document.addEventListener("keydown", key);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("keydown", key);
+      opener?.focus();
+    };
+  }, [scoreId, inspectMetric, capVillage]);
   function exportSnapshot() {
     if (!data) return;
-    const report = {
+    const payload = {
       product: "HydroGuard",
-      type: "Uncalibrated model-data snapshot; not an official warning",
+      version: "2.1",
+      status: "Research prototype; not an official alert",
       exportedAt: new Date().toISOString(),
       fetchedAt: data.fetchedAtIso,
-      modelValidAt: data.validAtIso,
-      cached: data.isCached || age >= 15,
-      scoringVersion: "2.0",
-      villages: villages.map((v) => ({
-        id: v.id,
-        name: v.name,
-        lat: v.lat,
-        lon: v.lon,
-        score: v.riskScore,
-        tier: v.riskLevel,
+      validAt: data.validAtIso,
+      cached,
+      scoringMethod: data.riskScore.methodologyNote,
+      villages: data.villages.map((v) => ({
+        ...v,
         factors: data.villageScores[v.id]?.factors,
       })),
-      sources: sourceMetrics.map((m) => ({
-        name: m.sourceName,
-        value: m.value,
-        unit: m.unit,
-        unavailable: !!m.unavailable,
-      })),
-      limitations:
-        "No verified shelter or route information. No field sensors. Scores are not probabilities.",
+      sources: data.metrics,
     };
     const url = URL.createObjectURL(
-      new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }),
+      new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      }),
     );
     const a = document.createElement("a");
     a.href = url;
     a.download = `hydroguard-live-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setNotice("Live snapshot downloaded");
+    setToast("Live snapshot downloaded");
   }
-  const riskCopy = useMemo(() => {
-    if (!score)
-      return {
-        title: "Listening to the catchment.",
-        text: "Connecting to live weather and river models. Risk is shown only when the required data is complete.",
-      };
-    return {
-      title: {
-        LOW: "A quieter catchment. Stay informed.",
-        MEDIUM: "Changing conditions. Stay aware.",
-        HIGH: "Elevated indicators. Watch closely.",
-        SEVERE: "High modelled risk. Stay informed.",
-      }[score.riskLevel],
-      text: `The highest current score is in ${shortName(data!.drivingVillageName)}. ${watchCount ? `${watchCount} villages are at high or severe modelled risk.` : "No monitored village is above the medium tier."}`,
-    };
-  }, [score, data, watchCount]);
-  return (
-    <div className="app-shell">
-      <a className="skip-link" href="#main">
-        Skip to dashboard
-      </a>
-      {mobileNav && (
-        <button
-          aria-label="Close navigation"
-          className="nav-overlay"
-          onClick={() => setMobileNav(false)}
-        />
-      )}
-      <aside className={`sidebar ${mobileNav ? "is-open" : ""}`}>
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setView("overview");
-          }}
-          className="brand"
-        >
-          <span className="brand-icon">
-            <Waves size={25} />
-          </span>
-          <span>
-            Hydro<span className="brand-light">Guard</span>
-            <small>CATCHMENT INTELLIGENCE</small>
-          </span>
-        </a>
-        <div className="workspace-label">
-          WORKSPACE <span>01</span>
-        </div>
-        <div className="catchment-switch">
-          <span className="catchment-avatar">
-            <MountainMark />
-          </span>
+  function villageTable() {
+    return (
+      <section id="villages" className={panel}>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            Rishi Ganga<small>Uttarakhand, India</small>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900">
+              Village Intelligence
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Current per-village scores, explanations and exercise exports.
+            </p>
           </div>
-          <ChevronDown size={14} />
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+            <Search size={15} className="text-slate-400" />
+            <input
+              className="text-xs outline-none w-40 max-w-full"
+              aria-label="Search villages"
+              placeholder="Search villages…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
         </div>
-        <div className="nav-label">MONITOR</div>
-        <nav aria-label="Main navigation">
-          {NAV.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              className={`nav-item ${tab === id ? "active" : ""}`}
-              aria-current={tab === id ? "page" : undefined}
-              onClick={() => setView(id)}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-              {id === "overview" && <span className="nav-live" />}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="source-mini">
-            <span className={`status-dot ${data ? "ready" : ""}`} />
-            <span>
-              {data ? "Live sources connected" : "Live sources pending"}
-              <small>Open-Meteo · Copernicus</small>
-            </span>
-          </div>
-          <div className="prototype-box">
-            <ShieldCheck size={18} />
-            <strong>Built for informed decisions</strong>
-            <p>Research prototype. Follow official local advisories.</p>
-            <button onClick={() => setView("method")}>
-              Understand the model <ArrowUpRight size={13} />
-            </button>
-          </div>
-          <div className="sidebar-foot">
-            <span className="version">HG / 2.0</span>
-            <span>Live data only</span>
-          </div>
-        </div>
-      </aside>
-      <div className="main-shell">
-        <header className="topbar">
-          <div className="breadcrumb">
-            <button
-              className="mobile-menu icon-button"
-              aria-label="Open navigation"
-              onClick={() => setMobileNav(true)}
-            >
-              <Menu size={20} />
-            </button>
-            <span>Workspace</span>
-            <ChevronRight size={13} />
-            <strong>{selectedTitle}</strong>
-          </div>
-          <div className="topbar-right">
-            <span className="live-pill">
-              <span className={`status-dot ${data ? "ready" : ""}`} />
-              LIVE FEEDS
-            </span>
-            <button
-              className="icon-button"
-              title="Methodology"
-              aria-label="Read methodology"
-              onClick={() => setView("method")}
-            >
-              <CircleHelp size={18} />
-            </button>
-            <div className="profile-mark">HG</div>
-          </div>
-        </header>
-        <main id="main">
-          <div className="page-heading">
-            <div>
-              <div className="eyebrow">
-                HIMALAYAN CATCHMENT NETWORK <span>/</span> RISHI GANGA
-              </div>
-              <h1>
-                {tab === "overview" ? "Catchment overview" : selectedTitle}
-              </h1>
-              <p>
-                {tab === "overview"
-                  ? "A clearer view of changing conditions. Every signal, in context."
-                  : tab === "villages"
-                    ? "Local model scores, grounded in configured village coordinates."
-                    : tab === "sources"
-                      ? "Know where each value comes from—and what it can tell you."
-                      : tab === "replay"
-                        ? "Explore historical reanalysis. This is separate from current live conditions."
-                        : "Transparent rules. Visible assumptions. Measurable limitations."}
-              </p>
-            </div>
-            <div className="page-actions">
-              <button
-                className="button secondary"
-                disabled={loading}
-                onClick={() => void refresh()}
-              >
-                <RefreshCw size={15} className={loading ? "spin" : ""} />
-                {loading ? "Refreshing" : "Refresh"}
-              </button>
-              <button
-                className="button primary"
-                disabled={!data}
-                onClick={exportSnapshot}
-              >
-                <ArrowDownToLine size={15} />
-                Export snapshot
-              </button>
-            </div>
-          </div>
-          <div
-            className={`connection-bar ${error ? "connection-error" : ""}`}
-            role="status"
-          >
-            <span className="connection-left">
-              {error ? <WifiOff size={14} /> : <Radio size={14} />}
-              <strong>{signalLabel}</strong>
-              <span className="divider" />
-              <span>
-                {data
-                  ? `Retrieved ${formatTime(data.fetchedAtIso)}`
-                  : "No synthetic values or demo fallback"}
-              </span>
-            </span>
-            <span>
-              {data
-                ? `Valid hour ${formatTime(data.validAtIso)}`
-                : "Refreshes every 10 minutes"}
-            </span>
-          </div>
-          {error && (
-            <div className="error-banner" role="alert">
-              <div>
-                <strong>Live data isn’t available right now.</strong>
-                <p>{error} No risk score is being inferred.</p>
-              </div>
-              <button
-                className="button secondary"
-                onClick={() => void refresh()}
-                disabled={loading}
-              >
-                Retry connection
-              </button>
-            </div>
-          )}
-          {tab === "overview" && (
-            <>
-              <section
-                className={`risk-hero ${score?.riskLevel.toLowerCase() ?? "pending"}`}
-              >
-                <div className="hero-landscape" aria-hidden="true">
-                  <svg viewBox="0 0 550 250">
-                    <path d="M0 210 75 100 120 140 205 20 295 120 330 75 430 160 500 80 550 150V250H0Z" />
-                    <path d="M0 240 90 180 155 200 235 110 300 165 385 105 460 190 550 165V250H0Z" />
-                    <path d="M0 250 85 218 155 235 255 190 315 225 390 185 470 230 550 205V250Z" />
-                  </svg>
-                </div>
-                <div className="hero-content">
-                  <div className="hero-eyebrow">
-                    <span className={`status-dot ${data ? "ready" : ""}`} /> CATCHMENT STATUS{" "}
-                    <span className="hero-tier">
-                      {score ? `${score.riskLevel} TIER` : "AWAITING DATA"}
-                    </span>
-                  </div>
-                  <h2>{riskCopy.title}</h2>
-                  <p>{riskCopy.text}</p>
-                  <button
-                    className="hero-link"
-                    disabled={!data}
-                    onClick={() => setScoreOpen(true)}
-                  >
-                    Understand this score <ArrowRight size={15} />
-                  </button>
-                </div>
-                <div className="hero-score">
-                  <div
-                    className="score-ring"
-                    style={
-                      {
-                        "--score": `${(score?.totalScore ?? 0) * 3.6}deg`,
-                      } as React.CSSProperties
-                    }
-                  >
-                    <div>
-                      <strong>{score?.totalScore ?? "—"}</strong>
-                      <span>OUT OF 100</span>
-                    </div>
-                  </div>
-                  <span>Uncalibrated risk index</span>
-                </div>
-              </section>
-              <div className="metrics-grid">
-                <MetricCard
-                  label="Rainfall · rolling 24h"
-                  metric={data?.metrics.rainfall}
-                  icon={CloudRain}
-                />
-                <MetricCard
-                  label="Topsoil moisture"
-                  metric={data?.metrics.soilMoisture}
-                  icon={Leaf}
-                />
-                <MetricCard
-                  label="River discharge · daily"
-                  metric={data?.metrics.riverLevel}
-                  icon={Waves}
-                />
-                <article className="metric-card">
-                  <div className="metric-heading">
-                    <span>Villages at high / severe</span>
-                    <MapPin size={17} />
-                  </div>
-                  <div className="metric-value">
-                    {data ? watchCount : "—"}
-                    <small>
-                      of {DEFAULT_CATCHMENT_CONFIG.villages.length} monitored
-                    </small>
-                  </div>
-                  <div className="metric-bottom">
-                    <span className="status-dot" />
-                    Model scores, not official alerts
-                  </div>
-                </article>
-              </div>
-              <div className="main-grid">
-                <section className="panel map-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h3>Catchment geography</h3>
-                      <p>Village locations & current risk tiers</p>
-                    </div>
-                    <button
-                      className="text-button"
-                      onClick={() => setView("villages")}
-                    >
-                      View all <ArrowUpRight size={14} />
-                    </button>
-                  </div>
-                  <LiveMap
-                    villages={villages}
-                    selected={selected}
-                    onSelect={setSelected}
-                  />
-                  <div className="map-legend">
-                    {Object.entries(tierColors).map(([tier, color]) => (
-                      <span key={tier}>
-                        <i style={{ background: color }} />
-                        {tier.charAt(0) + tier.slice(1).toLowerCase()}
-                      </span>
-                    ))}
-                    <span>
-                      <i style={{ background: "#778b90" }} />
-                      Unavailable
-                    </span>
-                  </div>
-                </section>
-                <section className="panel village-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h3>Village spotlight</h3>
-                      <p>Select a marker to explore</p>
-                    </div>
-                    <MapPin size={18} />
-                  </div>
-                  <label className="sr-only" htmlFor="village-select">
-                    Select village
-                  </label>
-                  <select
-                    id="village-select"
-                    value={selected}
-                    onChange={(e) => setSelected(e.target.value)}
-                  >
-                    {DEFAULT_CATCHMENT_CONFIG.villages.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="village-title">
-                    <h2>{shortName(configVillage.name)}</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                {[
+                  "Village",
+                  "Coordinates",
+                  "Risk score",
+                  "Tier",
+                  "Actions",
+                ].map((t) => (
+                  <th key={t} className="p-3 whitespace-nowrap">
+                    {t}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((v) => (
+                <tr
+                  key={v.id}
+                  className="border-b border-slate-100 hover:bg-slate-50/70"
+                >
+                  <td className="p-3 font-semibold text-slate-900 whitespace-nowrap">
+                    {v.name}
+                  </td>
+                  <td className="p-3 font-mono whitespace-nowrap text-slate-500">
+                    {v.lat.toFixed(4)}, {v.lon.toFixed(4)}
+                  </td>
+                  <td className="p-3 font-mono font-bold">{v.riskScore}/100</td>
+                  <td className="p-3">
                     <span
-                      className="tier-badge"
-                      style={{
-                        color: selectedTier
-                          ? tierColors[selectedTier]
-                          : "#6c7e78",
-                      }}
+                      className={`tier-label tier-${v.riskLevel.toLowerCase()}`}
                     >
-                      {selectedTier ?? "NO DATA"}
+                      {v.riskLevel}
                     </span>
-                  </div>
-                  <div className="coordinate">
-                    {configVillage.lat.toFixed(4)}° N &nbsp;{" "}
-                    {configVillage.lon.toFixed(4)}° E
-                  </div>
-                  <div className="village-score">
-                    <strong>{village?.riskScore ?? "—"}</strong>
-                    <span>
-                      /100<small>Local model risk index</small>
-                    </span>
-                    <Activity size={26} />
-                  </div>
-                  <ScoreBreakdown score={selectedScore} />
-                  <div className="village-note">
-                    <ShieldCheck size={16} />
-                    <span>
-                      Shelters and routes require local verification. Follow
-                      official district advisories.
-                    </span>
-                  </div>
-                </section>
-              </div>
-              <div className="bottom-grid">
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h3>How conditions are changing</h3>
-                      <p>
-                        {data
-                          ? shortName(data.drivingVillageName)
-                          : "Highest-scoring village"}{" "}
-                        · previous 24 hours
-                      </p>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      <button
+                        className={button}
+                        onClick={() => setScoreId(v.id)}
+                        aria-label={`Explain ${v.name} score`}
+                      >
+                        Why this score?
+                      </button>
+                      <button
+                        className={button}
+                        onClick={() => setCapVillage(v)}
+                        aria-label={`Export CAP for ${v.name}`}
+                      >
+                        CAP XML
+                      </button>
                     </div>
-                    <span className="small-tag">MODEL HISTORY</span>
-                  </div>
-                  <LiveTrend points={data?.trendHistory ?? []} />
-                </section>
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h3>Source health</h3>
-                      <p>Visibility before certainty</p>
-                    </div>
-                    <span className="source-count">
-                      {sourcesReady}
-                      <small>/3</small>
-                    </span>
-                  </div>
-                  {[
-                    {
-                      title: "Weather model",
-                      sub: "Rainfall & topsoil · hourly",
-                      ok: !!data,
-                    },
-                    {
-                      title: "GloFAS river model",
-                      sub: "River discharge · daily",
-                      ok: !!data && !data.metrics.riverLevel.unavailable,
-                    },
-                    {
-                      title: "Field observations",
-                      sub: "No physical sensors connected",
-                      ok: false,
-                    },
-                  ].map((s) => (
-                    <div className="source-row" key={s.title}>
-                      <div className={`source-icon ${s.ok ? "connected" : ""}`}>
-                        {s.ok ? <Check size={15} /> : <Signal size={15} />}
-                      </div>
-                      <div>
-                        <strong>{s.title}</strong>
-                        <small>{s.sub}</small>
-                      </div>
-                      <span>{s.ok ? "Available" : "Unavailable"}</span>
-                    </div>
-                  ))}
-                  <button
-                    className="text-button source-details"
-                    onClick={() => setView("sources")}
-                  >
-                    Explore data provenance <ArrowRight size={14} />
-                  </button>
-                </section>
-              </div>
-            </>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!filtered.length && (
+            <p className="py-8 text-center text-sm text-slate-500">
+              No villages match your search.
+            </p>
           )}
-          {tab === "villages" && (
-            <div className="panel village-monitor">
-              <div className="panel-heading">
-                <div>
-                  <h3>Monitored villages</h3>
-                  <p>
-                    All values come from the latest successful model response.
-                  </p>
-                </div>
-                <label className="search">
-                  <Search size={16} />
-                  <input
-                    aria-label="Search villages"
-                    placeholder="Search villages…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </label>
-              </div>
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Village</th>
-                      <th>Coordinates</th>
-                      <th>Risk index</th>
-                      <th>Tier</th>
-                      <th>Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((v) => (
-                      <tr key={v.id}>
-                        <td>
-                          <strong>{v.name}</strong>
-                        </td>
-                        <td className="mono">
-                          {v.lat?.toFixed(4)}, {v.lon?.toFixed(4)}
-                        </td>
-                        <td>
-                          <strong>{v.riskScore}</strong> / 100
-                        </td>
-                        <td>
-                          <span
-                            className="tier-badge"
-                            style={{ color: tierColors[v.riskLevel] }}
-                          >
-                            {v.riskLevel}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            className="text-button"
-                            onClick={() => {
-                              setSelected(v.id);
-                              setView("overview");
-                            }}
-                          >
-                            Inspect <ArrowUpRight size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!filtered.length && (
-                  <div className="quiet-empty">
-                    {data
-                      ? "No villages match your search."
-                      : "Village scores are unavailable until live data is received."}
-                  </div>
-                )}
-              </div>
-              <LiveMap
-                villages={villages}
-                selected={selected}
-                onSelect={(id) => {
-                  setSelected(id);
-                  setView("overview");
-                }}
-              />
-            </div>
-          )}
-          {tab === "sources" && (
-            <div className="sources-page">
-              {["rainfall", "soilMoisture", "riverLevel"].map((key) => {
-                const m = data?.metrics[key as "rainfall"];
-                return (
-                  <article className="panel provenance" key={key}>
-                    <div className="panel-heading">
-                      <h3>
-                        {key === "rainfall"
-                          ? "Rainfall"
-                          : key === "soilMoisture"
-                            ? "Topsoil moisture"
-                            : "River discharge"}
-                      </h3>
-                      <span className="small-tag">
-                        {m && !m.unavailable ? "MODEL DATA" : "UNAVAILABLE"}
-                      </span>
-                    </div>
-                    <h2>
-                      {m && !m.unavailable
-                        ? `${m.value} ${m.unit}`
-                        : "No current value"}
-                    </h2>
-                    <dl>
-                      <dt>Provider</dt>
-                      <dd>
-                        {m?.sourceName ??
-                          (key === "riverLevel"
-                            ? "Copernicus GloFAS via Open-Meteo"
-                            : "Open-Meteo forecast API")}
-                      </dd>
-                      <dt>Method</dt>
-                      <dd>
-                        {m?.sourceMethod ?? "Waiting for a valid response."}
-                      </dd>
-                      <dt>Data context</dt>
-                      <dd>
-                        {m?.details ??
-                          "Missing readings are never substituted with zero."}
-                      </dd>
-                      <dt>Retrieved</dt>
-                      <dd>{formatTime(data?.fetchedAtIso)}</dd>
-                    </dl>
-                    <a
-                      href={
-                        key === "riverLevel"
-                          ? "https://open-meteo.com/en/docs/flood-api"
-                          : "https://open-meteo.com/en/docs"
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Provider documentation <ExternalLink size={14} />
-                    </a>
-                  </article>
-                );
-              })}
-              <div className="panel provenance">
-                <h3>Freshness is part of the signal</h3>
-                <p>
-                  Rainfall and soil readings must cover the current UTC hour,
-                  with a complete 72-hour rainfall window. River discharge is a
-                  daily model value. A recent real response can be used for up
-                  to six hours during an outage and is labelled cached. It is
-                  never replaced with synthetic data.
-                </p>
-                <p>
-                  Nearby villages may share a model grid cell. Their scores
-                  should not be interpreted as independent sensor readings.
-                </p>
-              </div>
-            </div>
-          )}
-          {tab === "replay" && (
+        </div>
+        <p className="mt-3 text-[11px] text-slate-500">
+          Model scores do not establish safe evacuation routes, shelter
+          availability or flood arrival times. CAP files are exercise-only;
+          nothing is dispatched.
+        </p>
+      </section>
+    );
+  }
+  function mapSection() {
+    return (
+      <section id="map-section" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold uppercase text-slate-800 flex items-center gap-2">
+            <MapPin size={16} />
+            Catchment view
+          </h2>
+          <div className="flex rounded-lg border border-slate-200 bg-white p-1">
+            {(["schematic", "geographic"] as const).map((mode) => (
+              <button
+                key={mode}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold ${mapMode === mode ? "bg-slate-900 text-white" : "text-slate-600"}`}
+                onClick={() => setMapMode(mode)}
+              >
+                {mode === "schematic" ? "Original schematic" : "Geographic map"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {mapMode === "schematic" ? (
+          <RiskMap
+            villages={mapVillages}
+            overallRisk={overall}
+            onSelectVillage={(v) => setSelectedVillage(v.id)}
+            onViewRoute={(v) => setScoreId(v.id)}
+          />
+        ) : (
+          <div className={panel}>
             <Suspense
               fallback={
-                <div className="quiet-empty">Loading archive explorer…</div>
+                <p className="p-8 text-sm text-slate-500">
+                  Loading geographic map…
+                </p>
               }
             >
-              <EventReplay />
+              <LiveMap
+                villages={villages}
+                selected={selectedVillage}
+                onSelect={setSelectedVillage}
+              />
             </Suspense>
-          )}
-          {tab === "method" && (
-            <div className="method-grid">
-              <section className="panel prose">
-                <span className="eyebrow">MODEL CARD / VERSION 2.0</span>
-                <h2>Every score should be explainable.</h2>
-                <p>
-                  HydroGuard combines modelled rainfall, antecedent wetness,
-                  topsoil moisture and river discharge into a 0–100
-                  decision-support index. The score is{" "}
-                  <strong>not a flood probability</strong> and is not calibrated
-                  for operational warnings.
-                </p>
-                <div className="method-weights">
-                  {[
-                    ["Rainfall", "35%"],
-                    ["72h rainfall", "20%"],
-                    ["Topsoil", "25%"],
-                    ["Discharge", "20%"],
-                  ].map(([label, value]) => (
-                    <div key={label}>
-                      <strong>{value}</strong>
-                      <span>{label}</span>
-                    </div>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <label className="text-xs text-slate-600">
+                Village{" "}
+                <select
+                  className="ml-2 border border-slate-200 rounded p-2"
+                  value={selectedVillage}
+                  onChange={(e) => setSelectedVillage(e.target.value)}
+                >
+                  {villages.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
                   ))}
-                </div>
-                <h3>What the model does</h3>
-                <ul>
-                  <li>
-                    Uses the strongest of 1-hour, 3-hour and 24-hour rainfall
-                    indicators.
-                  </li>
-                  <li>
-                    Requires complete rainfall history and a current soil
-                    reading.
-                  </li>
-                  <li>
-                    Excludes unavailable river discharge and adjusts weights to
-                    44 / 25 / 31.
-                  </li>
-                  <li>
-                    Computes a separate score at each configured village
-                    coordinate.
-                  </li>
-                </ul>
-                <h3>What it cannot establish</h3>
-                <ul>
-                  <li>
-                    Flood extent, safe evacuation routes, or verified shelters.
-                  </li>
-                  <li>
-                    Warning lead time or the arrival time of an actual flood.
-                  </li>
-                  <li>Rock-and-ice avalanche or other cryospheric triggers.</li>
-                  <li>
-                    Independent confirmation: the indicators are correlated.
-                  </li>
-                </ul>
-                <h3>Validation required</h3>
-                <p>
-                  Compare against dated gauge records and verified events,
-                  include non-flood periods, and measure false alarms and missed
-                  events on a separate evaluation set. Reanalysis replay
-                  illustrates the rules; it does not prove forecast skill.
-                </p>
-              </section>
-              <div>
-                <section className="panel prose">
-                  <h3>Risk tiers</h3>
-                  {[
-                    ["LOW", "0–29"],
-                    ["MEDIUM", "30–59"],
-                    ["HIGH", "60–79"],
-                    ["SEVERE", "80–100"],
-                  ].map(([tier, range]) => (
-                    <div className="tier-row" key={tier}>
-                      <span
-                        className="tier-badge"
-                        style={{
-                          color: tierColors[tier as keyof typeof tierColors],
-                        }}
-                      >
-                        {tier}
-                      </span>
-                      <strong>{range}</strong>
-                    </div>
-                  ))}
-                  <p>
-                    Only the 24-hour rainfall cut-offs follow IMD categories.
-                    Other thresholds, weights and the assumed soil field
-                    capacity are HydroGuard heuristics.
-                  </p>
-                </section>
-                <section className="panel prose next-step">
-                  <ShieldCheck size={25} />
-                  <h3>Live inputs. Honest limits.</h3>
-                  <p>
-                    No demo mode, fabricated telemetry, simulated delivery
-                    receipts or unverified evacuation instructions.
-                  </p>
-                  <a
-                    href="https://github.com/molikf16-00/hydroguard"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View project repository <ArrowUpRight size={14} />
-                  </a>
-                </section>
+                </select>
+              </label>
+              <button
+                className={button}
+                onClick={() => setScoreId(selectedVillage)}
+              >
+                Explain selected village
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  }
+  function sourceHealth() {
+    return (
+      <section id="source-health" className={panel}>
+        <div className="flex items-center gap-2 mb-4">
+          <Database size={17} />
+          <h2 className="text-sm font-bold uppercase">Live source health</h2>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            {
+              name: "Weather model",
+              available: !!data,
+              note: "Hourly rainfall and topsoil moisture",
+            },
+            {
+              name: "River discharge",
+              available: !!data && !data.metrics.riverLevel.unavailable,
+              note: "Daily GloFAS hydrological model",
+            },
+            {
+              name: "Field sensors",
+              available: false,
+              note: "Not connected; no fabricated readings",
+            },
+          ].map((s) => (
+            <div
+              key={s.name}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+            >
+              <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+                <span>{s.name}</span>
+                <span
+                  className={
+                    s.available ? "text-emerald-700" : "text-slate-500"
+                  }
+                >
+                  {s.available ? "Available" : "Unavailable"}
+                </span>
               </div>
+              <p className="mt-2 text-xs text-slate-500">{s.note}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-4 text-xs text-slate-500">
+          {data
+            ? `Retrieved ${dateText(data.fetchedAtIso)}. Hourly model valid time: ${dateText(data.validAtIso)}.`
+            : "Awaiting a valid response."}{" "}
+          Cached responses are labelled and expire after six hours.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+      <a href="#main-content" className="skip-link">
+        Skip to dashboard
+      </a>
+      <Navbar
+        currentTab={currentTab}
+        onTabChange={setCurrentTab}
+        overallRisk={overall}
+        riskUnknown={!data}
+        activeAlertsCount={flagged.length}
+        appMode="LIVE"
+        onModeToggle={() => {}}
+        liveDataStatus={status}
+        onOpenConfigModal={() => setCurrentTab("about")}
+      />
+      <div className="border-b border-slate-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span className="font-semibold flex items-center gap-1.5">
+              <MapPin size={14} />
+              Chamoli · Rishi Ganga
+            </span>
+            <span
+              className={`rounded-md border px-2 py-1 font-semibold ${cached ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}
+              role="status"
+            >
+              {data
+                ? cached
+                  ? `Cached model data · ${age}m old`
+                  : "Live model data"
+                : loading
+                  ? "Connecting to live sources"
+                  : "No live data"}
+            </span>
+            <span className="text-slate-500">
+              5 villages · refresh every 10 min
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              className={button}
+              onClick={() => void refresh()}
+              disabled={loading}
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              {loading ? "Refreshing" : "Refresh live data"}
+            </button>
+            <button
+              className={
+                button +
+                " bg-slate-900! text-white! border-slate-900! hover:bg-slate-800!"
+              }
+              disabled={!data}
+              onClick={exportSnapshot}
+            >
+              <ArrowDownToLine size={14} />
+              Export snapshot
+            </button>
+          </div>
+        </div>
+      </div>
+      <main
+        id="main-content"
+        className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6"
+      >
+        <div className="flex flex-wrap justify-between items-start gap-4 border-b border-slate-200 pb-4">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
+              {currentTab === "dashboard"
+                ? "Flash Flood Decision Support System"
+                : {
+                    map: "Catchment Risk Map",
+                    alerts: "Computed Alerts & Village Intelligence",
+                    analytics: "Hydrological Risk Analytics",
+                    about: "System Architecture & Data Methodology",
+                    replay: "Historical Event Replay",
+                  }[currentTab]}
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Live model feeds, explainable risk scoring, and transparent data
+              quality.
+            </p>
+          </div>
+          {data && (
+            <div className="text-xs text-slate-500 leading-6">
+              <p className="flex items-center gap-1.5">
+                <Clock size={13} />
+                Retrieved: {dateText(data.fetchedAtIso)}
+              </p>
+              <p>Model valid: {dateText(data.validAtIso)}</p>
             </div>
           )}
-          <footer className="footer">
-            <span>
-              <Waves size={15} /> HydroGuard{" "}
-              <span className="footer-separator">/</span> Catchment intelligence
-            </span>
-            <span>
-              Model data · Uncalibrated prototype · Not an official warning
-            </span>
-            <button onClick={() => setReadOnlyReport(true)}>
-              About this workspace <ArrowUpRight size={12} />
-            </button>
-          </footer>
-        </main>
-      </div>
-      {notice && (
-        <div className="toast" role="status">
-          <Check size={16} />
-          {notice}
         </div>
-      )}
-      {(scoreOpen || readOnlyReport) && (
-        <div
-          className="dialog-backdrop"
-          onClick={() => {
-            setScoreOpen(false);
-            setReadOnlyReport(false);
-          }}
-        >
-          <div
-            className="dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={
-              scoreOpen ? "Risk score explanation" : "About HydroGuard"
-            }
-            onClick={(e) => e.stopPropagation()}
+        {gate ? (
+          <section
+            className={panel + " text-center py-12!"}
+            role={loading ? "status" : "alert"}
           >
-            <button
-              autoFocus
-              className="dialog-close icon-button"
-              aria-label="Close dialog"
-              onClick={() => {
-                setScoreOpen(false);
-                setReadOnlyReport(false);
-              }}
-            >
-              <X size={20} />
-            </button>
-            {scoreOpen ? (
-              <>
-                <span className="eyebrow">WHY THIS SCORE</span>
-                <h2>
-                  {score?.totalScore}/100 · {score?.riskLevel}
-                </h2>
-                <p>
-                  {data?.drivingVillageName} has the highest score in the
-                  monitored catchment.
-                </p>
-                <ScoreBreakdown score={score} />
-                <p className="dialog-note">{score?.methodologyNote}</p>
-              </>
+            {loading ? (
+              <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
             ) : (
+              <WifiOff className="h-8 w-8 mx-auto text-slate-400" />
+            )}
+            <h2 className="mt-4 font-bold text-lg">
+              {loading
+                ? "Loading live data"
+                : "Live data isn’t available right now"}
+            </h2>
+            <p className="text-sm text-slate-500 mt-2 max-w-xl mx-auto">
+              {loading
+                ? "Fetching validated weather and river model data for each village."
+                : error}{" "}
+              No demo values or synthetic risk scores are shown.
+            </p>
+            <button
+              className={button + " mt-5"}
+              onClick={() => void refresh()}
+              disabled={loading}
+            >
+              Retry connection
+            </button>
+          </section>
+        ) : (
+          <>
+            {currentTab === "dashboard" && data && (
               <>
-                <span className="eyebrow">HYDROGUARD / 2.0</span>
-                <h2>Clarity for changing conditions.</h2>
-                <p>
-                  A live-data decision-support workspace for the Rishi Ganga
-                  catchment. Built using public weather and river model APIs.
-                </p>
-                <p>
-                  The geographic map shows configured village coordinates. No
-                  surveyed shelter, population or route information is presented
-                  as operational data.
-                </p>
-                <p>
-                  Weather and river data: Open-Meteo and Copernicus. Map:
-                  OpenStreetMap contributors.
-                </p>
+                <nav
+                  aria-label="Dashboard quick jumps"
+                  className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs"
+                >
+                  <Compass size={15} className="text-slate-500" />
+                  <strong className="mr-2">Jump to:</strong>
+                  {[
+                    ["#citizen-guide", "Citizen Action Guide"],
+                    ["#telemetry", "Live Telemetry"],
+                    ["#map-section", "Risk Map"],
+                    ["#trend-section", "Risk Trend"],
+                    ["#villages", "Village Intelligence"],
+                    ["#source-health", "Source Health"],
+                  ].map(([href, label]) => (
+                    <a
+                      key={href}
+                      href={href}
+                      className="rounded-md bg-slate-50 border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-600 hover:bg-slate-100"
+                    >
+                      {label}
+                    </a>
+                  ))}
+                </nav>
+                <MainRiskCard
+                  overallRisk={overall}
+                  riskScore={data.riskScore.totalScore}
+                  villages={villages}
+                  leadTime={`${age} min`}
+                  lastUpdated={dateText(data.fetchedAtIso)}
+                  headline={data.headline}
+                  description={data.description}
+                  catchmentName="Chamoli · Rishi Ganga"
+                  onViewEmergencyDetails={() =>
+                    document
+                      .getElementById("villages")
+                      ?.scrollIntoView({ behavior: "smooth" })
+                  }
+                  transparentScore={data.riskScore}
+                  onOpenWhyScore={() => setScoreId("catchment")}
+                  onInspectMetric={setInspectMetric}
+                />
+                <section
+                  id="citizen-guide"
+                  className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"
+                >
+                  <h2 className="flex gap-2 items-center text-sm font-bold uppercase text-emerald-900">
+                    <ShieldCheck size={18} />
+                    Citizen Action Guide
+                  </h2>
+                  <p className="text-sm text-emerald-900 mt-3">
+                    Use the indicators to stay informed and follow official
+                    district advisories. A low score does not establish that an
+                    area is safe.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-3 mt-4 text-xs text-emerald-900">
+                    <div className="bg-white/70 rounded-lg p-3">
+                      <strong>Check the source</strong>
+                      <p className="mt-1 text-emerald-800">
+                        These are weather and river models, not physical sensor
+                        readings.
+                      </p>
+                    </div>
+                    <div className="bg-white/70 rounded-lg p-3">
+                      <strong>Check freshness</strong>
+                      <p className="mt-1 text-emerald-800">
+                        Read the retrieval and model timestamps before
+                        interpreting a score.
+                      </p>
+                    </div>
+                    <div className="bg-white/70 rounded-lg p-3">
+                      <strong>Use verified guidance</strong>
+                      <p className="mt-1 text-emerald-800">
+                        Shelter availability and safe routes require
+                        confirmation from local authorities.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+                <section id="telemetry">
+                  <MultiSourceCards
+                    {...data.metrics}
+                    isLive
+                    onInspectMetric={setInspectMetric}
+                  />
+                </section>
+                {mapSection()}
+                <section id="trend-section">
+                  <RiskTrendChart
+                    trendHistory={data.trendHistory}
+                    overallRisk={overall}
+                  />
+                </section>
+                {villageTable()}
+                {sourceHealth()}
               </>
             )}
-          </div>
+            {currentTab === "map" && data && (
+              <>
+                {mapSection()}
+                {villageTable()}
+              </>
+            )}
+            {currentTab === "alerts" && data && (
+              <>
+                <section className={panel}>
+                  <h2 className="flex gap-2 items-center font-bold text-sm">
+                    <Radio size={17} />
+                    Computed alerts · not dispatched
+                  </h2>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {flagged.length} villages currently have high or severe
+                    model scores. These are not official warnings.
+                  </p>
+                  {data.alerts.length ? (
+                    data.alerts.map((a) => (
+                      <div
+                        key={a.id}
+                        className="mt-3 border border-slate-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3"
+                      >
+                        <div>
+                          <strong className="text-sm">{a.area}</strong>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {a.title} · {a.time}
+                          </p>
+                        </div>
+                        <span
+                          className={`tier-label tier-${a.level.toLowerCase()}`}
+                        >
+                          {a.level}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="mt-4 text-sm text-slate-600">
+                      No village is currently above the medium tier.
+                    </p>
+                  )}
+                </section>
+                {villageTable()}
+                {sourceHealth()}
+              </>
+            )}
+            {currentTab === "analytics" && data && (
+              <>
+                <Suspense
+                  fallback={
+                    <p className="text-sm text-slate-500">Loading analytics…</p>
+                  }
+                >
+                  <AnalyticsView
+                    isLive
+                    trendHistory={data.trendHistory}
+                    overallRisk={overall}
+                    villages={villages}
+                    alertsCount={flagged.length}
+                    transparentScore={data.riskScore}
+                    onInspectMetric={setInspectMetric}
+                    onOpenWhyScore={() => setScoreId("catchment")}
+                  />
+                </Suspense>
+                {sourceHealth()}
+              </>
+            )}
+            {currentTab === "replay" && (
+              <Suspense
+                fallback={
+                  <p className="text-sm text-slate-500">
+                    Loading archive explorer…
+                  </p>
+                }
+              >
+                <EventReplay />
+              </Suspense>
+            )}
+            {currentTab === "about" && (
+              <>
+                <section className={panel}>
+                  <h2 className="text-sm font-bold uppercase">
+                    Live data pipeline
+                  </h2>
+                  <div className="grid gap-3 md:grid-cols-4 mt-4">
+                    {[
+                      [
+                        "01",
+                        "Collect",
+                        "Open-Meteo hourly weather and daily GloFAS discharge.",
+                      ],
+                      [
+                        "02",
+                        "Validate",
+                        "Require consecutive rainfall history and a current soil reading.",
+                      ],
+                      [
+                        "03",
+                        "Explain",
+                        "Score each village and display each factor’s contribution.",
+                      ],
+                      [
+                        "04",
+                        "Review",
+                        "Inspect sources, export a snapshot, or compare historical reanalysis.",
+                      ],
+                    ].map(([n, title, copy]) => (
+                      <div
+                        key={n}
+                        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <span className="font-mono text-emerald-700 text-xs">
+                          {n}
+                        </span>
+                        <h3 className="font-bold text-sm mt-2">{title}</h3>
+                        <p className="text-xs text-slate-600 leading-6 mt-2">
+                          {copy}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+                <section className={panel}>
+                  <h2 className="font-bold text-sm uppercase">
+                    Model methodology
+                  </h2>
+                  <p className="text-sm text-slate-600 leading-7 mt-3">
+                    The rule-based index is uncalibrated and is not a flood
+                    probability. Weights: rainfall 35%, 72-hour rainfall 20%,
+                    soil moisture 25%, discharge 20%. Missing discharge is
+                    excluded and the other weights become 44%, 25%, 31%. Only
+                    the 24-hour rainfall cut-offs follow IMD categories; all
+                    other thresholds are heuristics.
+                  </p>
+                  <p className="text-sm text-slate-600 leading-7 mt-3">
+                    Nearby villages can share a coarse model cell. Correlated
+                    indicators do not provide independent confirmation.
+                    Historical reanalysis is retrospective, so replay crossings
+                    do not establish forecast lead time. No physical sensors or
+                    external alert channels are connected.
+                  </p>
+                </section>
+                {sourceHealth()}
+                <section className={panel}>
+                  <h2 className="text-sm font-bold uppercase">
+                    Monitored coordinates
+                  </h2>
+                  <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                    {DEFAULT_CATCHMENT_CONFIG.villages.map((v) => (
+                      <div
+                        key={v.id}
+                        className="flex justify-between gap-3 rounded-lg border border-slate-200 p-3 text-xs"
+                      >
+                        <strong>{v.name}</strong>
+                        <span className="font-mono text-slate-500">
+                          {v.lat}, {v.lon}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-3">
+                    Coordinates are configured points. The original schematic is
+                    illustrative; the geographic view uses these actual
+                    coordinates.
+                  </p>
+                </section>
+              </>
+            )}
+          </>
+        )}
+      </main>
+      <Footer />
+      {score && (
+        <WhyThisScoreModal
+          scoreData={score}
+          isOpen
+          onClose={() => setScoreId(null)}
+        />
+      )}
+      <MetricSourceModal
+        data={inspectMetric}
+        onClose={() => setInspectMetric(null)}
+      />
+      {capVillage && data && (
+        <CapAlertModal
+          village={capVillage}
+          overallRisk={overall}
+          isOpen
+          onClose={() => setCapVillage(null)}
+        />
+      )}{" "}
+      {toast && (
+        <div
+          role="status"
+          className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-5 py-3 rounded-xl shadow-xl text-sm flex items-center gap-2"
+        >
+          <CheckCircle2 size={16} />
+          {toast}
         </div>
       )}
     </div>
-  );
-}
-function MountainMark() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="23"
-      height="23"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    >
-      <path d="m2 19 7-12 4 6 3-4 6 10Z" />
-      <path d="m6 12 3 2 3-2" />
-    </svg>
   );
 }
