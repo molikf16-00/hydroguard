@@ -220,3 +220,16 @@ select:focus-visible {
   position: relative;
   z-index: 1;
 }
+/* Prevent overflowing dashboard content from expanding mobile layout viewport. */
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+main,
+.grid > * {
+  min-width: 0;
+}
+main {
+  overflow-wrap: anywhere;
+}
