@@ -184,7 +184,7 @@ export default function App() {
         data.metrics.riverLevel,
       ]
     : [];
-  const sourcesReady = sourceMetrics.filter((m) => !m.unavailable).length;
+  const sourcesReady = (data ? 1 : 0) + (data && !data.metrics.riverLevel.unavailable ? 1 : 0);
   const signalLabel = data
     ? data.isCached || age >= 15
       ? `Cached · ${age}m old`
@@ -464,7 +464,7 @@ export default function App() {
                 </div>
                 <div className="hero-content">
                   <div className="hero-eyebrow">
-                    <span className="status-dot ready" /> CATCHMENT STATUS{" "}
+                    <span className={`status-dot ${data ? "ready" : ""}`} /> CATCHMENT STATUS{" "}
                     <span className="hero-tier">
                       {score ? `${score.riskLevel} TIER` : "AWAITING DATA"}
                     </span>
