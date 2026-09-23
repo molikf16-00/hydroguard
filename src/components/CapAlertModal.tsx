@@ -47,13 +47,13 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
     SEVERE: "Severe tier",
     HIGH: "High tier",
     MEDIUM: "Medium tier",
-    LOW: "Low tier (no alert warranted)",
+    LOW: "Low model tier",
   };
   const headlineByTier: Record<RiskLevel, string> = {
     SEVERE: `EXERCISE: SEVERE FLASH FLOOD RISK, ${targetVillageName.toUpperCase()}`,
     HIGH: `EXERCISE: FLOOD WATCH, ${targetVillageName.toUpperCase()}`,
     MEDIUM: `EXERCISE: WEATHER ADVISORY, ${targetVillageName.toUpperCase()}`,
-    LOW: `EXERCISE: NO ALERT WARRANTED, ${targetVillageName.toUpperCase()}`,
+    LOW: `EXERCISE: LOW MODEL TIER, ${targetVillageName.toUpperCase()}`,
   };
   const descriptionByTier: Record<RiskLevel, string> = {
     SEVERE:
@@ -61,14 +61,14 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
     HIGH: "Several modelled indicators are above their watch levels for this village.",
     MEDIUM:
       "Modelled rainfall and soil moisture are above normal for this village.",
-    LOW: "Modelled indicators are within normal ranges. This template is shown for demonstration only.",
+    LOW: "Available model inputs produced a low score. This does not establish safe conditions.",
   };
   const instructionByTier: Record<RiskLevel, string> = {
     SEVERE: "Exercise only. Follow official local authority advisories.",
     HIGH: "Prepare emergency supplies and be ready to move to the assembly point if told to.",
     MEDIUM:
       "Stay alert, keep away from riverbeds, and monitor the local advisory channel.",
-    LOW: "No action needed.",
+    LOW: "Exercise only. Continue following official local authority advisories.",
   };
   const capXml = generateCapXml({
     headline: headlineByTier[tierLevel],
@@ -154,7 +154,7 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
-                  TARGET AREA & ESTIMATED WAVE TRAVEL TIME
+                  TARGET AREA & FORECAST LIMITS
                 </span>
                 <span className="font-bold text-slate-900 text-sm">
                   {targetVillageName} — {targetCluster}
@@ -164,7 +164,7 @@ export const CapAlertModal: React.FC<CapAlertModalProps> = ({
                   <strong className="font-mono text-red-700">
                     {leadTimeStr}
                   </strong>{" "}
-                  (assumption-based estimate)
+                  (wave arrival is not predicted)
                 </span>
               </div>
 
